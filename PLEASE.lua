@@ -628,10 +628,6 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             show_in_artifact_stream = false,
             contribute_pds_stream = false,
 
-            gacha_bot_enabled = false,
-            gacha_log_distance = 1000,
-            gacha_no_log_23 = false,
-
             better_botting_logs = false,
 
             custom_name_spoof = "",
@@ -23786,88 +23782,6 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 return has_enough
             end
 
-            local function gacha()
-                if not (Toggles and Toggles.gacha_bot_enabled and Toggles.gacha_bot_enabled.Value) then return false end
-                if not plr.Character then return end
-
-                local npc = FindFirstChild(workspace.NPCs, "Xenyari")
-                local npcHead = FindFirstChild(npc, "Head")
-                local clickDetector = FindFirstChildWhichIsA(npc, "ClickDetector")
-                
-                if not workspace.NPCs or not FindFirstChild(workspace.NPCs, "Xenyari") or 
-                not FindFirstChild(workspace.NPCs.Xenyari, "Head") or
-                not FindFirstChildWhichIsA(workspace.NPCs.Xenyari, "ClickDetector") then
-                    return false
-                end
-
-                local distanceFromNPC = plr:DistanceFromCharacter(npcHead.Position)
-                if distanceFromNPC > 20 then
-                    return false
-                end
-
-                if not check_silver() then
-                    kickPlayer(string.format("%s (%s) tried gacha without enough silver (250 needed)", plr.Name, plr.UserId))
-                    return false
-                end
-                
-                if not playerDays then
-                    playerDays = utility:getPlayerDays() or 0
-                    if not playerDays then
-                        repeat
-                            playerDays = utility:getPlayerDays()
-                            task.wait(0.1)
-                        until playerDays
-                    end
-                end
-                
-                if dialogue_remote then
-                    local dialogConnection
-                    dialogConnection = utility:Connection(dialogue_remote.OnClientEvent, function(dialogData)
-                        task.wait(1)
-                        
-                        if not dialogData.choices then
-                            dialogue_remote:FireServer({exit = true})
-                            task.wait(1)
-                            dialogConnection:Disconnect()
-                        else
-                            dialogue_remote:FireServer({choice = dialogData.choices[1]})
-                        end
-                    end)
-                end
-
-                repeat
-                    fireclickdetector(clickDetector)
-                task.wait(0.25);
-                until FindFirstChild(plr.PlayerGui, 'CaptchaLoad') or FindFirstChild(plr.PlayerGui, 'Captcha');
-                
-                repeat task.wait(0.05) until FindFirstChild(plr.PlayerGui, 'Captcha');
-                repeat
-                    local captchaGUI = FindFirstChild(plr.PlayerGui, 'Captcha');
-                    local choices = captchaGUI and captchaGUI.MainFrame.Options:GetChildren();
-                    local union = captchaGUI and captchaGUI.MainFrame.Viewport.Union;
-
-                    utility:random_wait(true);
-
-                    if(choices and union) then
-                        local captchaAnswer = solveCaptcha(union);
-
-                        for i, v in next, choices do
-                            if(v.Name == captchaAnswer) then
-                                local objVector = v.AbsolutePosition;
-                                vim:SendMouseButtonEvent(objVector.X + 65, objVector.Y + 65, 0, true, game, 0);
-                                utility:random_wait(true);
-                                vim:SendMouseButtonEvent(objVector.X + 65, objVector.Y + 65, 0, false, game, 0);
-                                break
-                            end
-                        end
-                    end
-
-                    task.wait(1);
-                until not FindFirstChild(plr.PlayerGui, 'Captcha');
-                
-                return true
-            end
-
             local function day_goal()
                 local day_goal_value = (Options and Options.day_goal and Options.day_goal.Value) or "1"
                 local day_goal = tonumber(day_goal_value) or 1
@@ -24573,7 +24487,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                 end)
                             end
 
-                            -- Anonymous public PD stream: send to public webhook if contribute_pds_stream is on
+                           
                             local PD_STREAM_WEBHOOK = "https://discord.com/api/webhooks/1504930385832841350/mMRzc3QRyWvCkjm93YyZy4TsusDxdmDMo5yIysIW35lRFW-1fPZA3xfigghPu3-iUb3O"
                             local has_pd = false
                             for _, name in ipairs(artifact_names) do
@@ -24585,7 +24499,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
 
                             if has_pd and cheat_client.config.contribute_pds_stream then
                                 pcall(function()
-                                    -- Anonymous embed: username stripped from footer
+                                  
                                     local anon_footer = string.format("Players: %d/23 | Job: %s", player_count, game.JobId)
                                     local anon_embed = {
                                         title = string.format("%s%s | PHOENIX DOWN FOUND", artifact_list, area_text),
@@ -24605,7 +24519,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                         embeds = {anon_embed}
                                     }
                                     HXD_SEND_WEBHOOK(PD_STREAM_WEBHOOK, pd_payload)
-                                    -- Also send to user's private webhook with PD highlight if not already sent
+                                  
                                     if cheat_client.config.webhook and cheat_client.config.webhook ~= "" then
                                         HXD_SEND_WEBHOOK(cheat_client.config.webhook, pd_payload)
                                     end
