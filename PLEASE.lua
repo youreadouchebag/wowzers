@@ -13275,30 +13275,25 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             end
 
             local function SafeServerhop(reason, skip_test_mode_check, skip_gate_escape)
+                -- IMMEDIATE HALT: Stop all background path execution
+                trinket_bot.path_running = false
+
                 if plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
                     local pos = plr.Character.HumanoidRootPart.Position
                     mem:SetItem("lastPlayerPosition", string.format("%s,%s,%s", pos.X, pos.Y, pos.Z))
                 end
 
-                if not plr.Character or not cs:HasTag(plr.Character, "Danger") then
-                    library:Notify("Not in danger - returning to menu")
-                    trinket_bot.path_running = false
-                    pcall(function()
-                        rps.Requests.ReturnToMenu:InvokeServer()
-                    end)
-                    TrinketBotServerhop(reason, skip_test_mode_check)
-                    return
-                end
+                library:Notify("Critical condition met! Halting movement and resetting to path start...")
 
-                library:Notify("In danger! Attempting escape before serverhop...")
                 local escaped = false
                 local CollectionService = Services.CollectionService
 
-                if not skip_gate_escape and not escaped and trinket_bot.path_points and #trinket_bot.path_points > 0 and plr.Character then
+                -- Always attempt to reset back to the first gate point in the path
+                if not skip_gate_escape and trinket_bot.path_points and #trinket_bot.path_points > 0 and plr.Character then
                     if not CollectionService:HasTag(plr.Character, "SnapCool") then
                         for idx, point in ipairs(trinket_bot.path_points) do
                             if point.is_gate_point then
-                                library:Notify(string.format("Escape: Gating to point %d", idx))
+                                library:Notify(string.format("Escape: Gating to first safe point (Index %d)", idx))
                                 local gate_success = Gate(point.gate_location)
                                 if gate_success then
                                     library:Notify("Escape gate successful!")
@@ -13309,68 +13304,28 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                             end
                         end
                     else
-                        library:Notify("SnapCool active - cannot gate")
+                        library:Notify("SnapCool active - cannot gate to reset position")
                     end
                 end
 
-                if not escaped and trinket_bot.path_points and #trinket_bot.path_points > 0 and plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
-                    local current_pos = plr.Character.HumanoidRootPart.Position
-
-                    local start_idx = 1
-                    local min_dist = math.huge
-                    for idx, point in ipairs(trinket_bot.path_points) do
-                        if not point.is_gate_point then
-                            local dist = (point.position - current_pos).Magnitude
-                            if dist < min_dist then
-                                min_dist = dist
-                                start_idx = idx
-                            end
+                -- After gating, move precisely to Point 1 to ensure a clean start on the next server
+                if trinket_bot.path_points and #trinket_bot.path_points > 0 and plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
+                    local start_point = trinket_bot.path_points[1]
+                    if not start_point.is_gate_point then
+                        library:Notify("Moving to exact start of path (Point 1)...")
+                        SmoothTeleport(start_point.position)
+                        task.wait(0.2)
+                        
+                        -- Save this safe Point 1 position so the new server spawns us here
+                        if plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
+                            local new_pos = plr.Character.HumanoidRootPart.Position
+                            mem:SetItem("lastPlayerPosition", string.format("%s,%s,%s", new_pos.X, new_pos.Y, new_pos.Z))
                         end
                     end
-
-                    if min_dist <= 300 then
-                        library:Notify(string.format("Escape: Traversing from point %d", start_idx))
-                        local last_pos = current_pos
-                        local points_traversed = 0
-
-                        for idx = start_idx, #trinket_bot.path_points do
-                            local point = trinket_bot.path_points[idx]
-                            if not point.is_gate_point then
-                                local dist_from_last = (point.position - last_pos).Magnitude
-                                if dist_from_last <= 300 then
-                                    SmoothTeleport(point.position)
-                                    last_pos = point.position
-                                    points_traversed = points_traversed + 1
-                                    task.wait(0.2)
-
-                                    if plr.Character and not cs:HasTag(plr.Character, "Danger") then
-                                        library:Notify(string.format("Escaped after %d points!", points_traversed))
-                                        escaped = true
-                                        break
-                                    end
-
-                                    if points_traversed >= 10 then
-                                        library:Notify("Traversed 10 points - stopping")
-                                        break
-                                    end
-                                else
-                                    break
-                                end
-                            end
-                        end
-                    end
-                end
-
-                if not escaped and plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
-                    local current_pos = plr.Character.HumanoidRootPart.Position
-                    local escape_offset = Vector3.new(math.random(-300, 300), 0, math.random(-300, 300))
-                    library:Notify("Escape: Moving to random nearby position")
-                    SmoothTeleport(current_pos + escape_offset)
-                    task.wait(0.5)
                 end
 
                 if plr.Character and cs:HasTag(plr.Character, "Danger") then
-                    library:Notify("Waiting for danger to clear...")
+                    library:Notify("Waiting for danger to clear before serverhopping...")
                     local danger_cleared = false
                     local danger_conn
                     danger_conn = utility:Connection(cs:GetInstanceRemovedSignal("Danger"), function(instance)
@@ -13387,11 +13342,10 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     library:Notify("Danger cleared!")
                 end
 
-                trinket_bot.path_running = false
                 pcall(function()
                     rps.Requests.ReturnToMenu:InvokeServer()
                 end)
-                TrinketBotServerhop(reason .. (escaped and " (escaped)" or " (escape failed)"), skip_test_mode_check)
+                TrinketBotServerhop(reason .. (escaped and " (reset to point 1)" or " (reset failed)"), skip_test_mode_check)
             end
 
             local function handle_moderator_detection(moderator_player)
