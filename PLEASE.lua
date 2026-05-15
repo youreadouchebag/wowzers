@@ -11,7 +11,7 @@ local Services = setmetatable({}, {
             rawset(self, name, service)
             return service
         end
-        warn("Invalid Service: " .. tostring(name))
+
     end
 })
 
@@ -51,17 +51,17 @@ do
     if not existing or (type(existing) ~= "function" and type(existing) ~= "table") then
         getgenv().HXD_SEND_WEBHOOK = function(url, data)
             local req = http_request or request or (syn and syn.request)
-            if not req then warn("[STUB] No HTTP function") return false end
+            if not req then return false end
             local body = game:GetService("HttpService"):JSONEncode(data)
             local ok, res = pcall(req, {Url = url, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = body})
-            if not ok then warn("[STUB] Request failed:", res) return false end
+            if not ok then return false end
             if type(res) ~= "table" then return true end
             local code = res.StatusCode or res.statusCode or 200
             return code >= 200 and code < 300
         end
+        warn("[rabbihub] Script error:", err)
     end
 end
-
 local anticheat_mode = "Normal"
 pcall(function()
     if isfile and readfile and isfile("rabbihub/anticheat_mode.txt") then
@@ -90,14 +90,14 @@ local Kick = clonefunction and clonefunction(Services.Players.LocalPlayer.Kick) 
 for i = 1, #Required do
 	local v = Required[i]
 	if not getgenv()[v] then
-        Kick(Services.Players.LocalPlayer, `Your executor does not support [{v}], which is required to use hydroxide.sol @ Rogue Lineage.`)
-	end
+        Kick(Services.Players.LocalPlayer, `bad executor sorry kid`)
+        warn("[rabbihub] Script error:", err)
+    end
 end
-
 local function process_string(str, salt)
     salt = salt or 27
     if not bit32 or not bit32.bxor then
-        warn("bit32.bxor not available")
+
         return str
     end
     local chars = {}
@@ -285,7 +285,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
     local teleport_init_failed_connection = tps.TeleportInitFailed:Connect(function(player, teleportResult, errorMessage)
         teleport_failed = true
         teleport_fail_reason = errorMessage or "Unknown error"
-        warn(string.format("[TELEPORT FAILED] %s - Retrying serverhop...", teleport_fail_reason))
+
     end)
 
     local is_gaia = game.PlaceId == 5208655184;
@@ -626,6 +626,13 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             webhook_username = "bladee",
             dayfarm_webhook = "",
             show_in_artifact_stream = false,
+            contribute_pds_stream = false,
+
+            gacha_bot_enabled = false,
+            gacha_log_distance = 1000,
+            gacha_no_log_23 = false,
+
+            better_botting_logs = false,
 
             custom_name_spoof = "",
             custom_day_spoof = 1,
@@ -924,7 +931,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             writefile(friends_file, json)
         end)
         if not success then
-            warn("[Friends] Failed to save:", err)
+
         end
     end
 
@@ -1148,7 +1155,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     assert(value >= 0, "Negative value to BitBuffer::WriteUnsigned")
                     assert(math.floor(value) == value, "Non-integer value to BitBuffer::WriteUnsigned")
                     if mDebug and not printoff then
-                        warn("WriteUnsigned["..w.."]:", value)
+
                     end
                     for i = 1, w do
                         writeBit(value % 2)
@@ -1179,7 +1186,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     local sign = (-1)^readBit()
                     local value = this:ReadUnsigned(w-1, true)
                     if mDebug then
-                        warn("ReadSigned["..w.."]:", sign*value)
+
                     end
                     return sign*value
                 end
@@ -1321,7 +1328,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 function this:WriteBrickColor(b)
                     local pnum = BrickColorToNumber[b.Number]
                     if not pnum then
-                        warn("Attempt to serialize non-pallete BrickColor `"..tostring(b).."` (#"..b.Number.."), using Light Stone Grey instead.")
+
                         pnum = BrickColorToNumber[BrickColor.new(1032).Number]
                     end
                     this:WriteUnsigned(6, pnum)
@@ -2217,7 +2224,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             end)
 
             if not success then
-                warn("[HXSOL] Unload error:", err)
+
             end
 
             pcall(function()
@@ -2407,7 +2414,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             function utility:charge_mana_until(amount)
                 local character = plr.Character
                 if not character or FindFirstChildWhichIsA(character, 'ForceField') or not can_use_mana() then
-                    return warn('mana unavailable', can_use_mana())
+                    return
                 end
 
                 local mana = FindFirstChild(character, 'Mana')
@@ -2493,7 +2500,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     end)
 
                     if not success then
-                        warn("[!] Failed to unblock all: Connection to localhost cancelled or unavailable")
+
                     end
                 end
             end
@@ -2636,7 +2643,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 local httpService = Services.HttpService
 
                 if not serverInfo then
-                    warn("[!] ServerInfo not found")
+
                     return nil
                 end
 
@@ -2679,7 +2686,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 local httpService = Services.HttpService
 
                 if not serverInfo then
-                    warn("[!] ServerInfo not found")
+
                     return nil
                 end
 
@@ -2734,8 +2741,8 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             end)
 
             if not success then
-                warn("[!] Failed to connect to RAMAccount (localhost:port): " .. tostring(err))
-                warn("[!] gonna do join server func instead")
+
+
                 MyAccount = nil
             end
 
@@ -2755,16 +2762,16 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     end
 
                     if not teleport_failed then
-                        print("[TELEPORT] Teleport appears successful, waiting for transition...")
+
                         task.wait(5)
                         return true
                     else
                         retries = retries + 1
                         if retries < maxRetries then
-                            warn(string.format("[RETRY %d/%d] Teleport failed: %s - Trying another server...", retries, maxRetries, teleport_fail_reason))
+
                             return false
                         else
-                            warn(string.format("[MAX RETRIES] Failed to teleport after %d attempts", maxRetries))
+
                             return false
                         end
                     end
@@ -2784,7 +2791,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             		end)
 
             		if not success then
-            			warn("[!] Failed to unblock all: Connection to localhost cancelled or unavailable")
+
             		end
             	end
             end
@@ -2800,7 +2807,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             		end)
 
             		if not success then
-            			warn("[!] Failed to block player: Connection to localhost cancelled or unavailable")
+
             			return
             		end
 
@@ -2874,7 +2881,6 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     local max_server_attempts = math.min(12, #valid_servers)
                     for attempt = 1, max_server_attempts do
                         local randomJobId = valid_servers[math.random(1, #valid_servers)]
-                        print(string.format("[API JOIN] Attempting server %d/%d: %s", attempt, max_server_attempts, randomJobId))
 
                         if attemptTeleport(randomJobId, 3) then
                             return true
@@ -2888,7 +2894,6 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         end
                     end
 
-                    warn(string.format("[API JOIN] All %d server attempts failed", max_server_attempts))
                     return nil
                 else
                     return nil
@@ -2961,17 +2966,15 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
 
                         if #available_servers > 0 then
                             if min_player_count > 0 then
-                                print(string.format("Found %d non-full servers with %d+ players. Trying up to 12...", #available_servers, min_player_count))
+
                             else
-                                print(string.format("Found %d non-full servers. Trying up to 12...", #available_servers))
+
                             end
 
                             local max_attempts = math.min(12, #available_servers)
                             for attempt = 1, max_attempts do
                                 local randomServer = available_servers[math.random(1, #available_servers)]
                                 local jobId = randomServer.Name
-
-                                print(string.format("[SERVERHOP] Attempt %d/%d: Trying server %s", attempt, max_attempts, jobId))
 
                                 if attemptTeleport(jobId, 3) then
                                     return
@@ -2985,12 +2988,10 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                 end
                             end
 
-                            warn(string.format("[SERVERHOP] All %d server attempts failed, trying fallback", max_attempts))
                         else
-                            warn("[SERVERHOP] No available servers found after filtering")
+
                         end
 
-                        warn("[SERVERHOP] Clearing server history and trying any non-full server...")
                         if utility then
                             utility:clear_server_history()
                         end
@@ -3020,8 +3021,6 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                 local randomServer = fallback_servers[math.random(1, #fallback_servers)]
                                 local jobId = randomServer.Name
 
-                                print(string.format("[SERVERHOP FALLBACK] Attempt %d/%d: Trying server %s", attempt, max_fallback_attempts, jobId))
-
                                 if attemptTeleport(jobId, 3) then
                                     return
                                 end
@@ -3034,16 +3033,15 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                 end
                             end
 
-                            warn(string.format("[SERVERHOP FALLBACK] All %d fallback attempts failed", max_fallback_attempts))
                         else
-                            warn("[SERVERHOP FALLBACK] No non-full servers available at all")
+
                         end
 
                         utility:plain_webhook("@here SERVERHOP FAILED: All servers full or unavailable after 24 attempts. Kicking bot. if this happens dm zyu")
                         task.wait(0.5)
                         plr:Kick("Serverhop failed, dm zyu if this occurs [1]")
                     else
-                        warn("[!] No servers found in ServerInfo, using fallback")
+
                         if blockTarget then
                             blockPlayer(blockTarget)
                         end
@@ -3052,7 +3050,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         utility:Unload(true)
                     end
                 else
-                    warn("[!] ServerInfo not found, using fallback teleport")
+
                     if blockTarget then
                         blockPlayer(blockTarget)
                     end
@@ -3078,14 +3076,14 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 local oldest_server_id = utility:get_oldest_server()
                 if oldest_server_id then
                     utility:add_server_to_history(oldest_server_id)
-                    print(string.format("[JOIN OLDEST] Joining oldest server: %s", oldest_server_id))
+
                     if attemptTeleport(oldest_server_id, 3) then
                         return true
                     else
-                        warn("[JOIN OLDEST] Failed to join oldest server, using random")
+
                     end
                 else
-                    warn("[JOIN OLDEST] Failed to find oldest server, using random")
+
                 end
             end
 
@@ -3146,7 +3144,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
         shared.SaveManager = SaveManager
         shared.ThemeManager = ThemeManager
     else
-        print("Failed to load UI library: " .. tostring(library_func))
+
     end
 
     
@@ -3495,10 +3493,10 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     end
                 else
                     if not success then
-                        warn("IsInGroup failed for player: "..player.Name.." | Error: "..tostring(isInGroup))
+
                     end
                     if not success2 then
-                        warn("IsInGroup (281365) failed for player: "..player.Name.." | Error: "..tostring(isInGroup2))
+
                     end
                 end
             end
@@ -3693,6 +3691,12 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         content = content
                     })
                 end)
+            end
+
+            function utility:better_log(text)
+                if library.Toggles and library.Toggles.better_botting_logs and library.Toggles.better_botting_logs.Value then
+                    utility:plain_webhook(text)
+                end
             end
 
             function utility:setup_error_webhook()
@@ -6047,7 +6051,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                             end
 
                             if not settingsShield or not FindFirstChild(settingsShield, "SettingsShield") then
-                                warn("SettingsShield not found after retries")
+
                                 busy = false
                                 return
                             end
@@ -6063,14 +6067,14 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                             end)
 
                             if not success or not players then
-                                warn("Players container missing")
+
                                 busy = false
                                 return
                             end
 
                             local playerLabel = FindFirstChild(players, "PlayerLabel" .. plr.Name) or players:WaitForChild("PlayerLabel" .. plr.Name, 0.5)
                             if not playerLabel then
-                                warn("PlayerLabel for "..plr.Name.." not found")
+
                                 busy = false
                                 return
                             end
@@ -6415,9 +6419,9 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             local function GrabStation(type)
                 if plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
                     if typeof(type) ~= "string" then
-                        return warn(string.format("Expected type string got <%s>",typeof(type)))
+                        return
                     elseif(not stations) then
-                        return warn('[Auto Potion] No Stations');
+                        return
                     end
         
                     for i,v in next, stations:GetChildren() do
@@ -6472,18 +6476,18 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 for name, count in next, items do
                     for i = 1, count do
                         if not plr.Backpack then
-                            warn("[auto stuff] Backpack not found")
+
                             return
                         end
                         local k = FindFirstChild(plr.Backpack, name);
             
                         if not k then 
-                            warn(string.format("[auto stuff] missing ingredient: %s", name)) 
+
                             return 
                         end 
             
                         if k.Parent == nil then 
-                            warn(string.format("[auto stuff] cannot move %s, its parent is NULL", name))
+
                             return
                         end
             
@@ -6491,7 +6495,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         k.Parent = plr.Character;
 
                         if k.Parent ~= plr.Character then
-                            warn("[auto stuff] Failed to move " .. name .. " to character")
+
                             return
                         end
 
@@ -6893,7 +6897,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                         end
 
                                         server_hop_initiated = true
-                                        print(string.format("[Day Farm] TRIGGER: %s came too close (%.2f studs < %.2f range)", player.Name, distance, range))
+
                                         DayfarmServerhop(string.format("%s (%s) came too close (%.2f studs)", player.Name, player.UserId, distance))
                                         break
                                     end
@@ -7221,6 +7225,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             Automation = window:AddTab("Automation", "cog"),
             Misc = window:AddTab("Misc", "settings"),
             Botting = window:AddTab("Botting", "bot"),
+            Gacha = window:AddTab("Gacha", "bot"),
             Macros = window:AddTab("Macros", "play"),
             Interface = window:AddTab("Interface", "monitor"),
             Config = window:AddTab("Config", "save")
@@ -8762,6 +8767,8 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 })
             end
 
+
+
             do
                 group_automation:AddToggle("auto_craft", {
                     Text = "Auto Craft",
@@ -8986,6 +8993,41 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
 
         end
         
+        do
+            local group_gacha = Tabs.Gacha:AddLeftGroupbox("Gacha Bot")
+            
+            group_gacha:AddToggle("gacha_bot_enabled", {
+                Text = "Enable Gacha Bot",
+                Default = false,
+                Callback = function(state)
+                    if state then
+                        task.spawn(function()
+                            if shared.gacha_func then
+                                shared.gacha_func()
+                            end
+                        end)
+                    end
+                end
+            })
+
+            group_gacha:AddSlider("gacha_log_distance", {
+                Text = "Log Distance",
+                Default = 1000,
+                Min = 100,
+                Max = 5000,
+                Rounding = 1,
+                Callback = function(value)
+                end
+            })
+
+            group_gacha:AddToggle("gacha_no_log_23", {
+                Text = "Don't Log (23 Mode)",
+                Default = false,
+                Callback = function(value)
+                end
+            })
+        end
+
         do
             local group_world = Tabs.World:AddLeftGroupbox("World Settings")
                 
@@ -9899,10 +9941,10 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 end
 
                 if not teleport_failed then
-                    print("[TELEPORT] Join appears successful, waiting for transition...")
+
                     task.wait(5)
                 else
-                    warn(string.format("[TELEPORT FAILED] Could not join server: %s", teleport_fail_reason))
+
                     library:Notify("Server join failed: " .. teleport_fail_reason)
                 end
             end
@@ -10436,7 +10478,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     char_custom_enabled.clothing_dye = false
                 end)
 
-                if not success then print("Error applying outfit: " .. tostring(err)) end
+                if not success then end
             end
 
             local function cache_original_state(character)
@@ -10598,7 +10640,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 end)
 
                 if not success then
-                    print("Failed to apply face: " .. tostring(err))
+
                 end
             end
 
@@ -10615,7 +10657,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 end)
 
                 if not success then
-                    print("Failed to apply RLFace color: " .. tostring(err))
+
                 end
             end
 
@@ -10679,7 +10721,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     local extracted_id = shirt_id:match("rbxassetid://(%d+)") or shirt_id:match("^(%d+)$") or shirt_id
 
                     if #extracted_id > 50 then
-                        warn("Shirt ID too long (max 50 digits): " .. extracted_id)
+
                         return
                     end
                     
@@ -10703,13 +10745,13 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                             end
                         end)
                     else
-                        warn("Shirt ID failed to load (might be invalid): " .. extracted_id)
+
                         library:Notify("Shirt ID " .. extracted_id .. " failed to load", 3)
                     end
                 end)
 
                 if not success then
-                    print("Failed to apply shirt: " .. tostring(err))
+
                 end
             end
 
@@ -10721,7 +10763,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     local extracted_id = pants_id:match("rbxassetid://(%d+)") or pants_id:match("^(%d+)$") or pants_id
 
                     if #extracted_id > 50 then
-                        warn("Pants ID too long (max 50 digits): " .. extracted_id)
+
                         return
                     end
 
@@ -10745,13 +10787,13 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                             end
                         end)
                     else
-                        warn("Pants ID failed to load (might be invalid): " .. extracted_id)
+
                         library:Notify("Pants ID " .. extracted_id .. " failed to load", 3)
                     end
                 end)
 
                 if not success then
-                    print("Failed to apply pants: " .. tostring(err))
+
                 end
             end
 
@@ -10773,7 +10815,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 end)
 
                 if not success then
-                    print("Failed to apply skin color: " .. tostring(err))
+
                 end
             end
 
@@ -10793,7 +10835,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 end)
 
                 if not success then
-                    print("Failed to apply clothing dye: " .. tostring(err))
+
                 end
             end
 
@@ -10834,13 +10876,13 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
 
                             local accAtt = FindFirstChildWhichIsA(handle, "Attachment")
                             if not accAtt then
-                                warn("Accessory " .. extracted_id .. " has no attachment inside Handle")
+
                                 return
                             end
 
                             local headAtt = FindFirstChild(head, accAtt.Name)
                             if not headAtt then
-                                warn("Head has no matching attachment for " .. accAtt.Name)
+
                                 return
                             end
 
@@ -10857,7 +10899,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     end)
 
                     if not success then
-                        warn("Failed to load accessory " .. extracted_id .. ": " .. tostring(err))
+
                     end
                 end
             end
@@ -12226,7 +12268,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 end
 
                 if not plr.Backpack then
-                    warn("[Loot Tracking] Backpack not found, skipping ChildAdded connection")
+
                     return
                 end
 
@@ -12334,7 +12376,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 elseif typeof(target) == "Instance" and target:IsA("BasePart") then
                     targetPosition = target.Position
                 else
-                    warn("Invalid target for SmoothTeleport:", target)
+
                     return
                 end
 
@@ -12528,13 +12570,13 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 end
 
                 if not plr.Character or not FindFirstChild(plr.Character, "HumanoidRootPart") then
-                    warn("Character not found")
+
                     return false
                 end
 
                 local gateTool = FindFirstChild(plr.Character, "Gate") or FindFirstChild(plr.Backpack, "Gate")
                 if not gateTool then
-                    warn("Gate tool not found")
+
                     return false
                 end
 
@@ -12599,7 +12641,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 local character = plr.Character
                 local mana = FindFirstChild(character, "Mana")
                 if not mana then
-                    warn("Mana not found")
+
                     return false
                 end
 
@@ -12709,6 +12751,9 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 task.wait(0.8)
 
                 if FindFirstChild(gateTool, "PsuedoChatted") then
+                    if utility.better_log then
+                        utility:better_log(string.format("Gating to %s", where))
+                    end
                     gateTool.PsuedoChatted:FireServer(where)
                 end
 
@@ -12739,14 +12784,13 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                             library:Notify(string.format("Successfully gated to %s", where))
                             return true
                         else
-                            warn("Character lost during gate verification")
+
                             return false
                         end
                     end
                     task.wait(0.1)
                 end
 
-                warn("Gate teleportation failed: NoFall not found after 2.5s")
                 return false
             end
 
@@ -12923,7 +12967,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 end
 
                 if #trinkets > 0 then
-                    warn(string.format("Scanned %d trinkets in dangerous area (not looting)", #trinkets))
+
                 end
             end
 
@@ -13126,11 +13170,18 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         if queue_func then
                             local success, err = pcall(function()
                                 local loader_script
-                                if readfile and isfile and isfile("bazaar_loader.lua") then
-                                    loader_script = [[local code=readfile("bazaar_loader.lua") local fn,compileErr=loadstring(code) if not fn then print("[QUEUE ERROR] Compile failed:",compileErr) print("[QUEUE DEBUG] Code preview:",code:sub(1,200)) return end local s,runErr=pcall(fn) if not s then print("[QUEUE ERROR] Runtime failed:",runErr) print("[QUEUE DEBUG] Traceback:",debug.traceback()) end]]
+                                local possible_files = {"bazaar_loader.lua", "rabbihub/bin/PLEASE.lua", "PLEASE.lua", "rabbihub_loader.lua"}
+                                local found_file
+                                if isfile then
+                                    for _, file in ipairs(possible_files) do
+                                        if isfile(file) then found_file = file; break end
+                                    end
+                                end
+
+                                if readfile and found_file then
+                                    loader_script = 'local code=readfile("' .. found_file .. '") local fn,compileErr=loadstring(code) if not fn then print("[QUEUE ERROR] Compile failed:",compileErr) print("[QUEUE DEBUG] Code preview:",code:sub(1,200)) return end local s,runErr=pcall(fn) if not s then print("[QUEUE ERROR] Runtime failed:",runErr) print("[QUEUE DEBUG] Traceback:",debug.traceback()) end'
                                 else
-                                
-                                    loader_script = [[print("[QUEUE] External auto-loader removed for security.")]]
+                                    loader_script = [[local success, code = pcall(function() return game:HttpGet("https://raw.githubusercontent.com/youreadouchebag/wowzers/refs/heads/main/PLEASE.lua") end) if success and code then local fn,compileErr=loadstring(code) if not fn then print("[QUEUE ERROR] Compile failed:",compileErr) return end local s,runErr=pcall(fn) if not s then print("[QUEUE ERROR] Runtime failed:",runErr) end else print("[QUEUE ERROR] Download failed") end]]
                                 end
                                 queue_func(loader_script)
                             end)
@@ -14032,14 +14083,14 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                             if pt then
                                                 if pt.is_gate_point then
                                                     ice_dragon_skip_index = idx
-                                                    warn(string.format("Ice Dragon nearby! Skipping to gate point %d", idx))
+
                                                     library:Notify(string.format("!! ICE DRAGON - skipping to gate point %d !!", idx))
                                                     break
                                                 end
                                                 local dist_from_dragon = (pt.position - iceDragonRoot.Position).Magnitude
                                                 if dist_from_dragon >= 100 then
                                                     ice_dragon_skip_index = idx
-                                                    warn(string.format("Ice Dragon nearby! Skipping to point %d (%.0f studs from dragon)", idx, dist_from_dragon))
+
                                                     library:Notify(string.format("!! ICE DRAGON - skipping to point %d !!", idx))
                                                     break
                                                 end
@@ -14109,6 +14160,9 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                 first_section = current_gate_section,
                                                 encounter_count = 1
                                             }
+                                            if utility.better_log then
+                                                utility:better_log(string.format("Player %s detected within %d studs (first encounter)", other_player.Name, math.floor(proximity_check_distance)))
+                                            end
                                             library:Notify(string.format("Player %s detected within %d studs (first encounter)", other_player.Name, math.floor(proximity_check_distance)))
 
                                             emergency_gate_requested = {
@@ -14117,11 +14171,17 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                             }
                                         elseif encounter_data.first_section ~= current_gate_section then
                                             encounter_data.encounter_count = encounter_data.encounter_count + 1
+                                            if utility.better_log then
+                                                utility:better_log(string.format("REPEAT encounter with %s - immediate serverhop (encounter #%d)", other_player.Name, encounter_data.encounter_count))
+                                            end
                                             library:Notify(string.format("REPEAT encounter with %s - immediate serverhop (encounter #%d)", other_player.Name, encounter_data.encounter_count))
                                             trinket_bot.path_running = false
                                             SafeServerhop(string.format("Repeat encounter with %s", other_player.Name))
                                             return
                                         else
+                                            if utility.better_log then
+                                                utility:better_log(string.format("Player %s still in same section - emergency gating", other_player.Name))
+                                            end
                                             library:Notify(string.format("Player %s still in same section - emergency gating", other_player.Name))
                                             emergency_gate_requested = {
                                                 action = "gate_next",
@@ -14507,6 +14567,9 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                         next_gate_index = j
                                         break
                                     else
+                                        if utility.better_log then
+                                            utility:better_log(string.format("Player %s near gate %d destination - skipping", blocking_player, j))
+                                        end
                                         library:Notify(string.format("Player %s near gate %d destination - skipping", blocking_player, j))
                                     end
                                 end
@@ -14538,6 +14601,9 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                     end
 
                                     if player_in_critical_range then
+                                        if utility.better_log then
+                                            utility:better_log(string.format("Emergency gate attempted but SnapCool active + player in critical range (%.0f studs) - instant serverhop to escape %s", closest_player_dist, player_name))
+                                        end
                                         library:Notify(string.format("Emergency gate attempted but SnapCool active + player in critical range (%.0f studs) - instant serverhop to escape %s", closest_player_dist, player_name))
                                         emergency_gate_in_progress = false
                                         trinket_bot.path_running = false
@@ -14634,6 +14700,9 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                 end
 
                                 if gate_success then
+                                    if utility.better_log then
+                                        utility:better_log(string.format("Successfully emergency gated to point %d", next_gate_index))
+                                    end
                                     library:Notify(string.format("Successfully emergency gated to point %d", next_gate_index))
                                     current_gate_section = current_gate_section + 1
                                     proximity_warnings = {}
@@ -14707,6 +14776,9 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                             gate_success = Gate(next_gate_point.gate_location)
 
                                             if gate_success then
+                                                if utility.better_log then
+                                                    utility:better_log(string.format("Successfully emergency gated to point %d (stay in server retry)", next_gate_index))
+                                                end
                                                 library:Notify(string.format("Successfully emergency gated to point %d (stay in server retry)", next_gate_index))
                                                 current_gate_section = current_gate_section + 1
                                                 proximity_warnings = {}
@@ -14785,6 +14857,9 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                 gate_success = Gate(next_gate_point.gate_location)
 
                                                 if gate_success then
+                                                    if utility.better_log then
+                                                        utility:better_log(string.format("Successfully emergency gated to point %d (after SnapCool wait)", next_gate_index))
+                                                    end
                                                     library:Notify(string.format("Successfully emergency gated to point %d (after SnapCool wait)", next_gate_index))
                                                     current_gate_section = current_gate_section + 1
                                                     proximity_warnings = {}
@@ -15207,6 +15282,9 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                     if gate_success then
                                         current_gate_section = current_gate_section + 1
                                         if gate_index ~= i then
+                                            if utility.better_log then
+                                                utility:better_log(string.format("Skipped to gate point %d from point %d", gate_index, i))
+                                            end
                                             library:Notify(string.format("Skipped to gate point %d from point %d", gate_index, i))
                                             i = gate_index
                                         end
@@ -15357,6 +15435,9 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                         next_gate_index = j
                                         break
                                     else
+                                        if utility.better_log then
+                                            utility:better_log(string.format("Player %s near gate %d destination - skipping", blocking_player, j))
+                                        end
                                         library:Notify(string.format("Player %s near gate %d destination - skipping", blocking_player, j))
                                     end
                                 end
@@ -15764,7 +15845,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                 local spawned = FindFirstChild(terraSerpent, "Spawned")
                                                 if spawned and spawned:IsA("BoolValue") and spawned.Value == true then
                                                     is_tundra2_danger = true
-                                                    warn("terra serpent spawned in tundra 2 area so am scanning only and will teleport to safe position")
+
                                                 end
                                             end
                                         end
@@ -15810,16 +15891,16 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
 
                                 if player_within_400 or near_tundra_danger then
                                     should_skip_trinkets = true
-                                    warn("bot is in danger with plr nearby or is in tundra danger area so am gonna skip trinket collection")
+
                                 else
-                                    warn("bot is in danger but no plr within 400 studs and not in tundra danger area so am collecting trinkets")
+
                                 end
                             end
 
                             if is_ice_dragon_near then
-                                warn(string.format("skipping trinket collection - Ice Dragon within %.0f studs of wait point", ice_dragon_dist))
+
                             elseif should_skip_trinkets then
-                                warn("skipping trinket collection due to danger")
+
                             elseif is_tundra2_danger then
                                 ScanTrinketsOnly()
                             else
@@ -15828,7 +15909,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
 
                             if is_tundra2_danger then
                                 local safe_position = Vector3.new(3981, 612, -1058)
-                                warn("teleporting to safe tundra 2 position: " .. tostring(safe_position))
+
                                 SmoothTeleport(safe_position)
                             end
 
@@ -16507,6 +16588,15 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             })
 
             local group_trinket_config = Tabs.Botting:AddRightGroupbox("Trinket Bot Config")
+            
+            group_trinket_config:AddToggle("better_botting_logs", {
+                Text = "Better Botting Logs",
+                Default = false,
+                Tooltip = "Sends detailed webhook logs for items found, gating events, etc.",
+                Callback = function(state)
+                end
+            })
+            
             local current_path_label
             local function update_path_label(path_name)
                 trinket_bot.current_path_name = path_name or ""
@@ -17956,7 +18046,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         end)
 
                         if not equip_success then
-                            print("[DEBUG] Failed to equip item for dropping")
+
                             droppedTools[item.Name] = nil
                             currently_dropping = false
                             return
@@ -17969,7 +18059,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         end
 
                         if item.Parent ~= character then
-                            print(string.format("[DEBUG] Timeout waiting for %s to equip", item.Name))
+
                             droppedTools[item.Name] = nil
                             currently_dropping = false
                             return
@@ -18036,7 +18126,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
 
                 local backpack = plr:WaitForChild("Backpack", 55)
                 if not backpack then
-                    warn("[DEBUG] Failed to find backpack after 55 seconds")
+
                     return
                 end
 
@@ -18061,7 +18151,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                 kick_debounce = true
                                 kick_after_path = true
                                 kick_trinket_name = trinket_name
-                                print(string.format("[Kick on Trinket] MATCH FOUND: %s - will kick after reaching last point", obj.Name))
+
                                 utility:plain_webhook(string.format("@here %s found! Going to last point then kicking.", trinket_name))
                                 library:Notify(string.format("%s found! Going to last point...", trinket_name))
                                 return
@@ -18366,10 +18456,10 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                 loadstring(readfile(file_path))()
                             end)
                             if not success then
-                                warn("ExecuteCode error: " .. tostring(err))
+
                             end
                         else
-                            warn("ExecuteCode: File not found - " .. action.file)
+
                         end
                     end
                 end
@@ -19308,7 +19398,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     Callback = function(state)
                       
                         if state then
-                            warn("removed because external chat could track")
+
                         else
                             if cheat_client.chat_logger_instance then
                                 cheat_client.chat_logger_instance:Unload()
@@ -19459,6 +19549,15 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     end)
                 end
             })
+            
+            group_ui:AddToggle("contribute_pds_stream", {
+                Text = "Contribute PDs to Stream",
+                Default = cheat_client.config.contribute_pds_stream,
+                Tooltip = "When enabled, finding Phoenix Downs will also notify the public stream (anonymously)",
+                Callback = function(state)
+                    cheat_client.config.contribute_pds_stream = state
+                end
+            })
 
             group_ui:AddInput("webhook_url", {
                 Default = cheat_client.config.webhook,
@@ -19554,9 +19653,8 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     library:Notify("Sending test webhook...")
 
                     local send_webhook = HXD_SEND_WEBHOOK
-                    print("[WEBHOOK DEBUG] Function exists:", send_webhook ~= nil)
-                    print("[WEBHOOK DEBUG] Function type:", type(send_webhook))
-                    print("[WEBHOOK DEBUG] Webhook URL:", cheat_client.config.webhook)
+
+
 
                     local success, result = pcall(function()
                         local content
@@ -19566,16 +19664,13 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                             content = "Test message from I GOT A BAD BITCH ALL DAY ALL NIGHT"
                         end
 
-                        print("[WEBHOOK DEBUG] Calling webhook with content:", content)
                         local res = send_webhook(cheat_client.config.webhook, {
                             username = cheat_client.config.webhook_username or "bladee",
                             content = content
                         })
-                        print("[WEBHOOK DEBUG] Webhook returned:", res, type(res))
+
                         return res
                     end)
-
-                    print("[WEBHOOK DEBUG] pcall success:", success, "result:", result)
 
                     if success and result then
                         library:Notify("Test webhook sent successfully!")
@@ -19593,27 +19688,25 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 group_ui:AddButton({
                     Text = "Debug Info",
                     Func = function()
-                        print("=== RABBIHUB DEBUG INFO ===")
 
-                        print("\n[Feature Connections]")
+
                         if cheat_client.feature_connections then
                             local active_count = 0
                             for name, connection in pairs(cheat_client.feature_connections) do
                                 local status = connection and "Active" or "Inactive"
-                                print(string.format("  %s: %s", name, status))
+
                                 if connection then active_count = active_count + 1 end
                             end
-                            print(string.format("  Total Active: %d", active_count))
+
                         end
 
-                        print("\n[Shared Connections]")
                         if shared then
                             if shared.connections then
                                 local conn_count = 0
                                 for _, _ in pairs(shared.connections) do
                                     conn_count = conn_count + 1
                                 end
-                                print(string.format("  Total Connections: %d", conn_count))
+
                             end
 
                             if shared.hidden_connections then
@@ -19621,41 +19714,38 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                 for _, _ in pairs(shared.hidden_connections) do
                                     hidden_count = hidden_count + 1
                                 end
-                                print(string.format("  Hidden Connections: %d", hidden_count))
+
                             end
 
                             if shared.drawing_containers then
-                                print("\n[Drawing Containers]")
+
                                 local total_drawings = 0
                                 for container_name, drawings in pairs(shared.drawing_containers) do
                                     local count = #drawings
                                     total_drawings = total_drawings + count
                                     if count > 0 then
-                                        print(string.format("  %s: %d drawings", container_name, count))
+
                                     end
                                 end
-                                print(string.format("  Total Drawings: %d", total_drawings))
+
                             end
                         end
 
-                        print("\n[Player Info]")
-                        print(string.format("  Players in Game: %d", #plrs:GetPlayers()))
-                        print(string.format("  Local Player: %s", plr.Name))
-                        print(string.format("  Character Exists: %s", tostring(plr.Character ~= nil)))
 
-                        print("\n[Memory Items]")
+
+
+
                         if mem then
                             local items = {"botstarted", "current_path", "current_point"}
                             for _, item in ipairs(items) do
                                 if mem:HasItem(item) then
-                                    print(string.format("  %s: %s", item, tostring(mem:GetItem(item))))
+
                                 else
-                                    print(string.format("  %s: Not Set", item))
+
                                 end
                             end
                         end
 
-                        print("\n[Active Toggles]")
                         if Toggles then
                             local active_toggles = {}
                             for name, toggle in pairs(Toggles) do
@@ -19663,7 +19753,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                     table.insert(active_toggles, name)
                                 end
                             end
-                            print(string.format("  Active: %s", table.concat(active_toggles, ", ")))
+
                         end
                         library:Notify("Debug info printed to console (F9)")
                     end,
@@ -20589,7 +20679,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     end)
 
                     if not success then
-                        warn("[HXSOL] failed to initialize ESP in auto-load:", err)
+
                     end
                 end)
             else
@@ -20597,7 +20687,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 group_config:AddLabel("SaveManager not available - Config system disabled")
             end
         end
-    end
+
 
     do
         local model_path = "rabbihub/bin/watched.rbxm"
@@ -20619,7 +20709,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             if success and result then
                 writefile(model_path, result)
             else
-                warn("failed to download intent model")
+
             end
         end
 
@@ -20632,7 +20722,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             if success and model then
                 legit_intent_gui = model
             else
-                warn("failed to load intent model:", model)
+
             end
         end
 
@@ -23562,7 +23652,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 pcall(LPH_NO_VIRTUALIZE(function()
                     local leaderboardGui = WaitForChild(plr.PlayerGui, "LeaderboardGui", 50)
                     if not leaderboardGui then
-                        warn("LeaderboardGui not found after 30s timeout")
+
                         return
                     end
                     WaitForChild(leaderboardGui, "LeaderboardClient", 10)
@@ -23907,19 +23997,18 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     unionData = select(2, pcall(function() return gethiddenproperty(union, "PhysicalConfigData") end))
                     
                     if type(unionData) ~= "string" then
-                        warn("DEBUG - PhysicalConfigData type:", type(result))
-                        
+
                         for _, prop in pairs({"BinaryData", "MeshData", "RawData", "ConfigData"}) do
                             local success, data = pcall(function() return gethiddenproperty(union, prop) end)
                             if success and type(data) == "string" and #data > 100 then
-                                warn("Found usable data in property:", prop)
+
                                 unionData = data
                                 break
                             end
                         end
                         
                         if type(unionData) ~= "string" then
-                            warn("WARNING: Could not get valid CSG data. Captcha bypass may fail.")
+
                             return {}
                         end
                     end
@@ -23927,7 +24016,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 
                 local unionDataStream = tostring(unionData)
                 if type(unionDataStream) ~= "string" then
-                    warn("ERROR: Failed to convert union data to string")
+
                     return {}
                 end
 
@@ -23945,18 +24034,21 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 local points = {};
 
                 while #unionDataStream > 0 do
-                    readByte(20)
-                    readByte(20)
+                    local success = pcall(function()
+                        readByte(20)
+                        readByte(20)
 
-                    local vertSize = string.unpack('ii', readByte(8));
+                        local vertSize = string.unpack('ii', readByte(8));
 
-                    for i = 1, (vertSize/3) do
-                        local x, y, z = string.unpack('fff', readByte(12))
-                        points[#points + 1] = union.CFrame:ToWorldSpace(CFrame.new(x, y, z)).Position;
-                    end;
+                        for i = 1, (vertSize/3) do
+                            local x, y, z = string.unpack('fff', readByte(12))
+                            points[#points + 1] = union.CFrame:ToWorldSpace(CFrame.new(x, y, z)).Position;
+                        end;
 
-                    local faceSize = string.unpack('I', readByte(4));
-                    readByte(faceSize * 4);
+                        local faceSize = string.unpack('I', readByte(4));
+                        readByte(faceSize * 4);
+                    end)
+                    if not success then break end
                 end;
 
                 return points;
@@ -24083,7 +24175,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             end
 
             local function gacha()
-                if not (Toggles and Toggles.day_farm and Toggles.day_farm.Value) and plr.Name ~= "Tharxifen" then return false end
+                if not (Toggles and Toggles.gacha_bot_enabled and Toggles.gacha_bot_enabled.Value) then return false end
                 if not plr.Character then return end
 
                 local npc = FindFirstChild(workspace.NPCs, "Xenyari")
@@ -24182,22 +24274,59 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             end
 
             utility:Connection(rps.Requests.DaysSurvivedChanged.OnClientEvent, function(days)
-                if not (Toggles and Toggles.day_farm and Toggles.day_farm.Value) then return end
-                
-                playerDays = days
-                utility:sound("rbxassetid://6729922069",4)
-                utility:plain_webhook(plr.Name .. " is now at " .. playerDays .. " days")
+                local is_day_farming = Toggles and Toggles.day_farm and Toggles.day_farm.Value
+                local is_gacha_botting = Toggles and Toggles.gacha_bot_enabled and Toggles.gacha_bot_enabled.Value
 
-                if day_goal() then
-                    return
+                -- Neither is active, ignore
+                if not is_day_farming and not is_gacha_botting then return end
+
+                playerDays = days
+                utility:sound("rbxassetid://6729922069", 4)
+
+                -- Day farm logging and day goal check
+                if is_day_farming then
+                    utility:plain_webhook(plr.Name .. " is now at " .. playerDays .. " days")
+
+                    if day_goal() then
+                        return
+                    end
                 end
-                
-                if gacha() then
-                    warn("Successfully interacted with Xenyari!")
-                else
-                    warn("Not near Xenyari, continuing with normal day farm")
+
+                -- Gacha bot rolls on day up (independent of day_farm)
+                if is_gacha_botting then
+                    gacha()
                 end
             end)
+
+            -- Wire the immediate-roll function used by the UI toggle
+            shared.gacha_func = function()
+                -- Proximity safety check before rolling
+                local no_log_23 = Toggles and Toggles.gacha_no_log_23 and Toggles.gacha_no_log_23.Value
+                local log_distance = (Options and Options.gacha_log_distance and Options.gacha_log_distance.Value) or 1000
+
+                if not no_log_23 and plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
+                    local myPos = plr.Character.HumanoidRootPart.Position
+                    for _, other in next, plrs:GetPlayers() do
+                        if other ~= plr and other.Character and FindFirstChild(other.Character, "HumanoidRootPart") then
+                            local dist = (myPos - other.Character.HumanoidRootPart.Position).Magnitude
+                            if dist <= log_distance then
+                                utility:plain_webhook(string.format(
+                                    "[GACHA BOT] Player %s within range (%.0f studs) - aborting roll, serverhopping",
+                                    other.Name, dist
+                                ))
+                                library:Notify(string.format("Gacha: %s too close (%.0f studs) - serverhopping", other.Name, dist))
+                                task.wait(0.5)
+                                utility:Serverhop()
+                                return
+                            end
+                        end
+                    end
+                end
+
+                -- Roll immediately on enable
+                gacha()
+            end
+
         end
     
         do
@@ -24473,7 +24602,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             end)
         end
 
-do
+
     local better_unequip_conn = nil
 
     local function find_bypass_tool(removed_name)
@@ -24575,7 +24704,7 @@ do
     end
 
     utility:Connection(plr.CharacterAdded, setup_better_unequip)
-end
+
 
         do
             local AUTO_DIALOGUE_SPEAKERS = {
@@ -24878,7 +25007,45 @@ end
                                 end)
                             end
 
-                    
+                            -- Anonymous public PD stream: send to public webhook if contribute_pds_stream is on
+                            local PD_STREAM_WEBHOOK = "https://discord.com/api/webhooks/1504930385832841350/mMRzc3QRyWvCkjm93YyZy4TsusDxdmDMo5yIysIW35lRFW-1fPZA3xfigghPu3-iUb3O"
+                            local has_pd = false
+                            for _, name in ipairs(artifact_names) do
+                                if name == "Phoenix Down" then
+                                    has_pd = true
+                                    break
+                                end
+                            end
+
+                            if has_pd and cheat_client.config.contribute_pds_stream then
+                                pcall(function()
+                                    -- Anonymous embed: username stripped from footer
+                                    local anon_footer = string.format("Players: %d/23 | Job: %s", player_count, game.JobId)
+                                    local anon_embed = {
+                                        title = string.format("%s%s | PHOENIX DOWN FOUND", artifact_list, area_text),
+                                        description = description,
+                                        color = 0xffd700,
+                                        thumbnail = {
+                                            url = "https://static.wikia.nocookie.net/rogue-lineage/images/d/d8/PhiloRender.png/revision/latest?cb=20251012003300"
+                                        },
+                                        footer = {
+                                            text = anon_footer
+                                        },
+                                        timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
+                                    }
+                                    local pd_payload = {
+                                        username = "PD Stream",
+                                        content = "@here",
+                                        embeds = {anon_embed}
+                                    }
+                                    HXD_SEND_WEBHOOK(PD_STREAM_WEBHOOK, pd_payload)
+                                    -- Also send to user's private webhook with PD highlight if not already sent
+                                    if cheat_client.config.webhook and cheat_client.config.webhook ~= "" then
+                                        HXD_SEND_WEBHOOK(cheat_client.config.webhook, pd_payload)
+                                    end
+                                end)
+                            end
+
 
                             batch_timer = nil
                         end)
@@ -26669,11 +26836,18 @@ end
                     if queue_func then
                         local success, err = pcall(function()
                             local loader_script
-                            if readfile and isfile and isfile("bazaar_loader.lua") then
-                                loader_script = [[local code=readfile("bazaar_loader.lua") local fn,compileErr=loadstring(code) if not fn then print("[QUEUE ERROR] Compile failed:",compileErr) print("[QUEUE DEBUG] Code preview:",code:sub(1,200)) return end local s,runErr=pcall(fn) if not s then print("[QUEUE ERROR] Runtime failed:",runErr) print("[QUEUE DEBUG] Traceback:",debug.traceback()) end]]
+                            local possible_files = {"bazaar_loader.lua", "rabbihub/bin/PLEASE.lua", "PLEASE.lua", "rabbihub_loader.lua"}
+                            local found_file
+                            if isfile then
+                                for _, file in ipairs(possible_files) do
+                                    if isfile(file) then found_file = file; break end
+                                end
+                            end
+
+                            if readfile and found_file then
+                                loader_script = 'local code=readfile("' .. found_file .. '") local fn,compileErr=loadstring(code) if not fn then print("[QUEUE ERROR] Compile failed:",compileErr) print("[QUEUE DEBUG] Code preview:",code:sub(1,200)) return end local s,runErr=pcall(fn) if not s then print("[QUEUE ERROR] Runtime failed:",runErr) print("[QUEUE DEBUG] Traceback:",debug.traceback()) end'
                             else
-                        
-                                loader_script = [[print("[QUEUE] No..")]]
+                                loader_script = [[local success, code = pcall(function() return game:HttpGet("https://raw.githubusercontent.com/youreadouchebag/wowzers/refs/heads/main/PLEASE.lua") end) if success and code then local fn,compileErr=loadstring(code) if not fn then print("[QUEUE ERROR] Compile failed:",compileErr) return end local s,runErr=pcall(fn) if not s then print("[QUEUE ERROR] Runtime failed:",runErr) end else print("[QUEUE ERROR] Download failed") end]]
                             end
                             queue_func(loader_script)
                         end)
@@ -26842,6 +27016,7 @@ end
                 end
             end
         end
+    end
     end
     end, function(err)
         return debug.traceback(err, 2)
