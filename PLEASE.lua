@@ -41,7 +41,7 @@ loadstring([[
 loadstring([[
     LPH_OBFUSCATED = false;
 ]])();
-
+-- nah really?
 pcall(loadstring([[if not HXD_HWID then HXD_HWID="STUB_HWID" HXD_DISCORD_ID="123456789" HXD_EXPIRES_AT=os.time()+2592000 HXD_STATUS="active" HXD_EXECUTION_COUNT=1 HXD_SECONDS_LEFT=2592000 HXD_UserNote="beta" end]]));
 pcall(loadstring([[if not HXD_SANITIZE then function HXD_SANITIZE(value,pattern)if not value or not pattern then return""end;value=tostring(value)local charset=pattern:match("%[(.-)%]")if not charset then return""end;local _,max=pattern:match("{%s*(%d+)%s*,%s*(%d+)%s*}")local max_len=tonumber(max)or#value;local extra_chars="→←↑↓★☆"charset=charset:gsub("%]","%%]")value=value:gsub("[^"..charset..extra_chars.."]","")return value:sub(1,max_len)end end]]));
 do
@@ -62,8 +62,8 @@ end
 
 local anticheat_mode = "Normal"
 pcall(function()
-    if isfile and readfile and isfile("HYDROXIDE/anticheat_mode.txt") then
-        local saved_mode = readfile("HYDROXIDE/anticheat_mode.txt")
+    if isfile and readfile and isfile("rabbihub/anticheat_mode.txt") then
+        local saved_mode = readfile("rabbihub/anticheat_mode.txt")
         if saved_mode == "Kick" or saved_mode == "Normal" then
             anticheat_mode = saved_mode
         end
@@ -211,11 +211,12 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
 
     local start = os.clock()
     do
-        makefolder("HYDROXIDE")
+        if not isfolder("rabbihub") then makefolder("rabbihub") end
+        if not isfolder("rabbihub/bin") then makefolder("rabbihub/bin") end
         if game.PlaceId == 14341521240 then
-            makefolder("HYDROXIDE\\rlp_configs")
+            makefolder("rabbihub\\rlp_configs")
         else
-            makefolder("HYDROXIDE\\configs")
+            makefolder("rabbihub\\configs")
         end
     end
 
@@ -695,7 +696,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             "Famous", "Mudock", "Billbert", "Revenge", "Legate",
             "Emperor", "King", "Duke", "Warden", "33", "Blunt",
             "Baba", "Bazaar", "Rango", "Otf", "Topuria", "Bodyslam",
-            "Hawktuah", "Azelf", "Nightraven", "Gallica", "Hydroxide",
+            "Hawktuah", "Azelf", "Nightraven", "Gallica", "rabbihub",
             "Joyuri", "Female", "Democracy", "Kikihub", "Heroinhound"
         },
         class_identifiers = {
@@ -914,7 +915,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
         window_active = true,
     }
 
-    local friends_file = "HYDROXIDE/friends.json"
+    local friends_file = "rabbihub/friends.json"
     function cheat_client:save_friends()
         local success, err = pcall(function()
             local json = Services.HttpService:JSONEncode(self.friends)
@@ -7200,7 +7201,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
         local Toggles = library.Toggles
 
         local window = library:CreateWindow({
-            Title = HXD_UserNote and string.format("Hydroxide | %s", HXD_UserNote:sub(1,1):upper() .. HXD_UserNote:sub(2)) or "Hydroxide",
+            Title = HXD_UserNote and string.format("rabbihub | %s", HXD_UserNote:sub(1,1):upper() .. HXD_UserNote:sub(2)) or "rabbihub",
             NotifySide = "Left",
             Footer = "",
             Center = true,
@@ -11758,7 +11759,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
         do
             local group_ps = Tabs.Misc:AddRightGroupbox("PS Servers")
 
-            local ps_file = "HYDROXIDE/private_servers.json"
+            local ps_file = "rabbihub/private_servers.json"
             local http_service = Services.HttpService
 
             local function load_servers()
@@ -16521,7 +16522,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     return {}
                 end
 
-                local folder_path = "HYDROXIDE/trinket_paths"
+                local folder_path = "rabbihub/trinket_paths"
 
                 if not isfolder(folder_path) then
                     if makefolder then
@@ -16622,7 +16623,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     return false
                 end
 
-                local file_path = "HYDROXIDE/trinket_paths/" .. path_name .. ".json"
+                local file_path = "rabbihub/trinket_paths/" .. path_name .. ".json"
                 if not isfile(file_path) then
                     library:Notify(string.format("Path '%s' not found!", path_name))
                     return false
@@ -17467,7 +17468,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         return
                     end
 
-                    local folder_path = "HYDROXIDE/trinket_paths"
+                    local folder_path = "rabbihub/trinket_paths"
                     if not isfolder or not isfolder(folder_path) then
                         if makefolder then
                             makefolder(folder_path)
@@ -17556,7 +17557,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         return
                     end
 
-                    local file_path = "HYDROXIDE/trinket_paths/" .. path_name .. ".json"
+                    local file_path = "rabbihub/trinket_paths/" .. path_name .. ".json"
 
                     if not isfile(file_path) then
                         library:Notify(string.format("Path '%s' not found!", path_name))
@@ -18357,7 +18358,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     end
                 elseif action.type == "executecode" then
                     if action.file and action.file ~= "" then
-                        local file_path = "HYDROXIDE/macros/" .. action.file
+                        local file_path = "rabbihub/macros/" .. action.file
                         if isfile(file_path) then
                             local success, err = pcall(function()
                                 loadstring(readfile(file_path))()
@@ -18453,7 +18454,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             end
 
             local function get_macros()
-                local folder = "HYDROXIDE/macros"
+                local folder = "rabbihub/macros"
                 if not isfolder then return {} end
                 if not isfolder(folder) then
                     if makefolder then makefolder(folder) end
@@ -18468,7 +18469,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             end
 
             local function get_lua_scripts()
-                local folder = "HYDROXIDE/macros"
+                local folder = "rabbihub/macros"
                 if not isfolder then return {} end
                 if not isfolder(folder) then
                     if makefolder then makefolder(folder) end
@@ -18537,7 +18538,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     library:Notify("Add at least one action!")
                     return false
                 end
-                local folder = "HYDROXIDE/macros"
+                local folder = "rabbihub/macros"
                 if not isfolder(folder) then makefolder(folder) end
                 local path = folder .. "/" .. name .. ".json"
                 local exists = isfile(path)
@@ -18570,7 +18571,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             end
 
             local function load_macro(name)
-                local path = "HYDROXIDE/macros/" .. name .. ".json"
+                local path = "rabbihub/macros/" .. name .. ".json"
                 if not isfile(path) then
                     library:Notify("Macro not found!")
                     return nil
@@ -18582,7 +18583,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             end
 
             local function delete_macro(name)
-                local path = "HYDROXIDE/macros/" .. name .. ".json"
+                local path = "rabbihub/macros/" .. name .. ".json"
                 if isfile(path) then
                     delfile(path)
                     library:Notify("Deleted macro: " .. name)
@@ -19405,7 +19406,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     cheat_client.config.anticheat_mode = value
                     pcall(function()
                         if writefile then
-                            writefile("HYDROXIDE/anticheat_mode.txt", value)
+                            writefile("rabbihub/anticheat_mode.txt", value)
                         end
                     end)
                 end
@@ -19590,7 +19591,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 group_ui:AddButton({
                     Text = "Debug Info",
                     Func = function()
-                        print("=== HYDROXIDE DEBUG INFO ===")
+                        print("=== RABBIHUB DEBUG INFO ===")
 
                         print("\n[Feature Connections]")
                         if cheat_client.feature_connections then
@@ -19795,7 +19796,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             library.HideInactiveStatus = true
             library:UpdateStatusFrame()
 
-            local status_pos_file = "rabbihub/status_frame_position.json"
+            local status_pos_file = "rabbihub/bin/status_frame_position.json"
             if library.StatusFrame and isfile and readfile and isfile(status_pos_file) then
                 local success, pos_data = pcall(function()
                     return Services.HttpService:JSONDecode(readfile(status_pos_file))
@@ -19823,6 +19824,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         if writefile and Services.HttpService then
                             pcall(function()
                                 if not isfolder("rabbihub") then makefolder("rabbihub") end
+                                if not isfolder("rabbihub/bin") then makefolder("rabbihub/bin") end
                                 writefile(status_pos_file, Services.HttpService:JSONEncode(posTable))
                             end)
                         end
@@ -19845,7 +19847,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             library.KeybindFrameEnabled = cheat_client.config.keybinds_ui or false
             library:UpdateKeybindFrame()
 
-            local keybind_pos_file = "rabbihub/keybind_frame_position.json"
+            local keybind_pos_file = "rabbihub/bin/keybind_frame_position.json"
             if library.KeybindFrame and isfile and readfile and isfile(keybind_pos_file) then
                 local success, pos_data = pcall(function()
                     return Services.HttpService:JSONDecode(readfile(keybind_pos_file))
@@ -19873,6 +19875,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         if writefile and Services.HttpService then
                             pcall(function()
                                 if not isfolder("rabbihub") then makefolder("rabbihub") end
+                                if not isfolder("rabbihub/bin") then makefolder("rabbihub/bin") end
                                 writefile(keybind_pos_file, Services.HttpService:JSONEncode(posTable))
                             end)
                         end
@@ -20353,9 +20356,9 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
 
         do
             if shared.SaveManager and shared.ThemeManager then
-                local config_folder = game.PlaceId == 14341521240 and "HYDROXIDE/rlp_configs" or "HYDROXIDE/configs"
+                local config_folder = game.PlaceId == 14341521240 and "rabbihub/rlp_configs" or "rabbihub/configs"
                 shared.SaveManager:SetFolder(config_folder)
-                shared.ThemeManager:SetFolder("HYDROXIDE")
+                shared.ThemeManager:SetFolder("rabbihub")
 
                 shared.SaveManager:SetIgnoreIndexes({ "SavedPaths" })
 
@@ -20595,12 +20598,15 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
     end
 
     do
-        local model_path = "rabbihub/watched.rbxm"
+        local model_path = "rabbihub/bin/watched.rbxm"
         local legit_intent_gui = nil
         local range = 100
 
-        if not isfolder("HYDROXIDE") then
-            makefolder("HYDROXIDE")
+        if not isfolder("rabbihub") then
+            makefolder("rabbihub")
+        end
+        if not isfolder("rabbihub/bin") then
+            makefolder("rabbihub/bin")
         end
 
         if not isfile(model_path) then
@@ -26843,6 +26849,6 @@ end
         if key then
             getgenv()[key] = nil
         end
-        warn("[hydroxide.sol] Script error:", err)
+        warn("[rabbihub] Script error:", err)
     end
 end
