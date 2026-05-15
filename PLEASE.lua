@@ -7225,7 +7225,6 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             Automation = window:AddTab("Automation", "cog"),
             Misc = window:AddTab("Misc", "settings"),
             Botting = window:AddTab("Botting", "bot"),
-            Gacha = window:AddTab("Gacha", "bot"),
             Macros = window:AddTab("Macros", "play"),
             Interface = window:AddTab("Interface", "monitor"),
             Config = window:AddTab("Config", "save")
@@ -8993,40 +8992,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
 
         end
         
-        do
-            local group_gacha = Tabs.Gacha:AddLeftGroupbox("Gacha Bot")
-            
-            group_gacha:AddToggle("gacha_bot_enabled", {
-                Text = "Enable Gacha Bot",
-                Default = false,
-                Callback = function(state)
-                    if state then
-                        task.spawn(function()
-                            if shared.gacha_func then
-                                shared.gacha_func()
-                            end
-                        end)
-                    end
-                end
-            })
 
-            group_gacha:AddSlider("gacha_log_distance", {
-                Text = "Log Distance",
-                Default = 1000,
-                Min = 100,
-                Max = 5000,
-                Rounding = 1,
-                Callback = function(value)
-                end
-            })
-
-            group_gacha:AddToggle("gacha_no_log_23", {
-                Text = "Don't Log (23 Mode)",
-                Default = false,
-                Callback = function(value)
-                end
-            })
-        end
 
         do
             local group_world = Tabs.World:AddLeftGroupbox("World Settings")
@@ -13080,7 +13046,9 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     critical_distance = Options.CriticalDistance and Options.CriticalDistance.Value or 60,
                     min_player_count = Options.MinPlayerCount and Options.MinPlayerCount.Value or 0,
                     speed = Options.TrinketBotSpeed and Options.TrinketBotSpeed.Value or 100,
-                    show_in_artifact_stream = Toggles.show_in_artifact_stream and Toggles.show_in_artifact_stream.Value or false
+                    show_in_artifact_stream = Toggles.show_in_artifact_stream and Toggles.show_in_artifact_stream.Value or false,
+                    better_botting_logs = Toggles.better_botting_logs and Toggles.better_botting_logs.Value or false,
+                    contribute_pds_stream = Toggles.contribute_pds_stream and Toggles.contribute_pds_stream.Value or false
                 }
                 pcall(function()
                     mem:SetItem("trinket_bot_settings", httpService:JSONEncode(settings_to_save))
@@ -16596,6 +16564,15 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 Callback = function(state)
                 end
             })
+
+            group_trinket_config:AddToggle("contribute_pds_stream", {
+                Text = "Contribute PDs to Stream",
+                Default = cheat_client.config.contribute_pds_stream,
+                Tooltip = "When enabled, finding Phoenix Downs will also notify the public stream (anonymously)",
+                Callback = function(state)
+                    cheat_client.config.contribute_pds_stream = state
+                end
+            })
             
             local current_path_label
             local function update_path_label(path_name)
@@ -16675,6 +16652,8 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 if Options.MinPlayerCount then Options.MinPlayerCount:SetValue(settings.min_player_count or 0) end
                 if Options.TrinketBotSpeed then Options.TrinketBotSpeed:SetValue(settings.speed or 100) end
                 if Toggles.show_in_artifact_stream then Toggles.show_in_artifact_stream:SetValue(settings.show_in_artifact_stream or false) end
+                if Toggles.better_botting_logs then Toggles.better_botting_logs:SetValue(settings.better_botting_logs or false) end
+                if Toggles.contribute_pds_stream then Toggles.contribute_pds_stream:SetValue(settings.contribute_pds_stream or false) end
 
                 if mem:HasItem("shared_settings") then
                     local httpService = Services.HttpService
@@ -19547,15 +19526,6 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         shared_settings.show_in_artifact_stream = state
                         mem:SetItem("shared_settings", httpService:JSONEncode(shared_settings))
                     end)
-                end
-            })
-            
-            group_ui:AddToggle("contribute_pds_stream", {
-                Text = "Contribute PDs to Stream",
-                Default = cheat_client.config.contribute_pds_stream,
-                Tooltip = "When enabled, finding Phoenix Downs will also notify the public stream (anonymously)",
-                Callback = function(state)
-                    cheat_client.config.contribute_pds_stream = state
                 end
             })
 
@@ -24274,58 +24244,12 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             end
 
             utility:Connection(rps.Requests.DaysSurvivedChanged.OnClientEvent, function(days)
-                local is_day_farming = Toggles and Toggles.day_farm and Toggles.day_farm.Value
-                local is_gacha_botting = Toggles and Toggles.gacha_bot_enabled and Toggles.gacha_bot_enabled.Value
-
-                -- Neither is active, ignore
-                if not is_day_farming and not is_gacha_botting then return end
-
+                if not (Toggles and Toggles.day_farm and Toggles.day_farm.Value) then return end
                 playerDays = days
                 utility:sound("rbxassetid://6729922069", 4)
-
-                -- Day farm logging and day goal check
-                if is_day_farming then
-                    utility:plain_webhook(plr.Name .. " is now at " .. playerDays .. " days")
-
-                    if day_goal() then
-                        return
-                    end
-                end
-
-                -- Gacha bot rolls on day up (independent of day_farm)
-                if is_gacha_botting then
-                    gacha()
-                end
+                utility:plain_webhook(plr.Name .. " is now at " .. playerDays .. " days")
+                if day_goal() then return end
             end)
-
-            -- Wire the immediate-roll function used by the UI toggle
-            shared.gacha_func = function()
-                -- Proximity safety check before rolling
-                local no_log_23 = Toggles and Toggles.gacha_no_log_23 and Toggles.gacha_no_log_23.Value
-                local log_distance = (Options and Options.gacha_log_distance and Options.gacha_log_distance.Value) or 1000
-
-                if not no_log_23 and plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
-                    local myPos = plr.Character.HumanoidRootPart.Position
-                    for _, other in next, plrs:GetPlayers() do
-                        if other ~= plr and other.Character and FindFirstChild(other.Character, "HumanoidRootPart") then
-                            local dist = (myPos - other.Character.HumanoidRootPart.Position).Magnitude
-                            if dist <= log_distance then
-                                utility:plain_webhook(string.format(
-                                    "[GACHA BOT] Player %s within range (%.0f studs) - aborting roll, serverhopping",
-                                    other.Name, dist
-                                ))
-                                library:Notify(string.format("Gacha: %s too close (%.0f studs) - serverhopping", other.Name, dist))
-                                task.wait(0.5)
-                                utility:Serverhop()
-                                return
-                            end
-                        end
-                    end
-                end
-
-                -- Roll immediately on enable
-                gacha()
-            end
 
         end
     
@@ -26836,7 +26760,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     if queue_func then
                         local success, err = pcall(function()
                             local loader_script
-                            local possible_files = {"bazaar_loader.lua", "rabbihub/bin/PLEASE.lua", "PLEASE.lua", "rabbihub_loader.lua"}
+                            local possible_files = {"bazaar_loader.lua",}
                             local found_file
                             if isfile then
                                 for _, file in ipairs(possible_files) do
