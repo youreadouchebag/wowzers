@@ -16893,334 +16893,97 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                     local distance_to_first = (root.Position - first_point).Magnitude
 
                                     if distance_to_first >= 20 then
-                                        local reference_position = saved_position or root.Position
-                                        local closest_point_index = 1
-                                        local closest_distance = (reference_position - first_point).Magnitude
+                                        local path_has_gates = false
+                                        local last_gate_point = nil
+                                        local last_gate_index = nil
 
-                                        for idx, path_point in ipairs(trinket_bot.path_points) do
-                                            local dist = (reference_position - path_point.position).Magnitude
-                                            if dist < closest_distance then
-                                                closest_distance = dist
-                                                closest_point_index = idx
+                                        for i = #trinket_bot.path_points, 1, -1 do
+                                            if trinket_bot.path_points[i].is_gate_point then
+                                                last_gate_point = trinket_bot.path_points[i]
+                                                last_gate_index = i
+                                                path_has_gates = true
+                                                break
                                             end
                                         end
 
-                                        if closest_distance < 2000 then
-                                            if closest_point_index > 1 then
-                                                local path_has_gates = false
-                                                for _, check_point in ipairs(trinket_bot.path_points) do
-                                                    if check_point.is_gate_point then
-                                                        path_has_gates = true
-                                                        break
-                                                    end
-                                                end
+                                        if path_has_gates and last_gate_point then
+                                            library:Notify(string.format("Resuming after serverhop - gating to last gate point %d to return to start", last_gate_index))
+                                            task.wait(1)
 
-                                                if path_has_gates and saved_position then
-                                                    library:Notify(string.format("Resuming after serverhop - continuing from saved position (closest point %d)", closest_point_index))
-                                                    task.wait(1)
-
-                                                    local proximity_check_distance = Options.ProximityCheck and Options.ProximityCheck.Value or 0
-                                                    if proximity_check_distance > 0 and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                                                        local char_pos = plr.Character.HumanoidRootPart.Position
-
-                                                        for _, other_player in next, plrs:GetPlayers() do
-                                                            if other_player ~= plr and other_player.Character and other_player.Character:FindFirstChild("HumanoidRootPart") then
-                                                                local distance = (other_player.Character.HumanoidRootPart.Position - char_pos).Magnitude
-
-                                                                if distance <= proximity_check_distance then
-                                                                    library:Notify(string.format("Player %s within %d studs after resume - serverhopping", other_player.Name, math.floor(distance)))
-                                                                    SafeServerhop(string.format("Player %s within %d studs after resume", other_player.Name, math.floor(proximity_check_distance)))
-                                                                    return
-                                                                end
-                                                            end
-                                                        end
-                                                    end
-
-                                                    local character = plr.Character
-                                                    local forcefield_removed = false
-                                                    local teleport_platform = nil
-
-                                                    if character and FindFirstChild(character, "HumanoidRootPart") then
-                                                        teleport_platform = Instance.new("Part")
-                                                        teleport_platform.Size = Vector3.new(7, 1, 7)
-                                                        teleport_platform.Position = saved_position + Vector3.new(0, -3, -18)
-                                                        teleport_platform.Anchored = true
-                                                        teleport_platform.CanCollide = true
-                                                        teleport_platform.Transparency = 1
-                                                        teleport_platform.Parent = workspace
-
-                                                        trinket_bot.path_running = true
-                                                        SmoothTeleport(teleport_platform.Position + Vector3.new(0, 4, 0))
-                                                        task.wait(1.5)
-
-                                                        if character and not FindFirstChildOfClass(character, "ForceField") then
-                                                            forcefield_removed = true
-                                                            library:Notify("ForceField removed via SmoothTeleport at saved position")
-                                                        end
-
-                                                        if teleport_platform then
-                                                            teleport_platform:Destroy()
-                                                            teleport_platform = nil
-                                                        end
-                                                    end
-
-                                                    if forcefield_removed then
-                                                        library:Notify(string.format("Continuing path from point %d", closest_point_index))
-
-                                                        local original_path = trinket_bot.path_points
-                                                        local original_point_1_pos = original_path[1].position
-                                                        local temp_path = {}
-
-                                                        for i = closest_point_index, #original_path do
-                                                            table.insert(temp_path, original_path[i])
-                                                        end
-
-                                                        for i = 1, closest_point_index - 1 do
-                                                            table.insert(temp_path, original_path[i])
-                                                        end
-
-                                                        trinket_bot.path_points = temp_path
-                                                        trinket_bot.original_point_1_position = original_point_1_pos
-
-                                                        trinket_bot.skip_distance_check = true
-
-                                                        trinket_bot.path_running = false
-
-                                                        library:Notify(string.format("Resuming path with %d points (starting from point %d)", #temp_path, closest_point_index))
-                                                        task.wait(0.5)
-
-                                                        if auto_start_death_connection then
-                                                            pcall(function() auto_start_death_connection:Disconnect() end)
-                                                            auto_start_death_connection = nil
-                                                        end
-
-                                                        ExecutePath(false)
-                                                        return
-                                                    else
-                                                        library:Notify("Could not remove ForceField at saved position - serverhopping")
-                                                        trinket_bot.path_running = false
-                                                        TrinketBotServerhop("Failed to remove ForceField for resume at saved position")
-                                                        return
-                                                    end
-                                                elseif path_has_gates then
-                                                    local last_gate_point = nil
-                                                    local last_gate_index = nil
-                                                    for i = #trinket_bot.path_points, 1, -1 do
-                                                        if trinket_bot.path_points[i].is_gate_point then
-                                                            last_gate_point = trinket_bot.path_points[i]
-                                                            last_gate_index = i
-                                                            break
-                                                        end
-                                                    end
-
-                                                    if last_gate_point then
-                                                        library:Notify(string.format("Resuming after serverhop (no saved position) - gating to last gate point %d", last_gate_index))
-                                                        task.wait(1)
-
-                                                        local proximity_check_distance = Options.ProximityCheck and Options.ProximityCheck.Value or 0
-                                                        if proximity_check_distance > 0 and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                                                            local char_pos = plr.Character.HumanoidRootPart.Position
-
-                                                            for _, other_player in next, plrs:GetPlayers() do
-                                                                if other_player ~= plr and other_player.Character and other_player.Character:FindFirstChild("HumanoidRootPart") then
-                                                                    local distance = (other_player.Character.HumanoidRootPart.Position - char_pos).Magnitude
-
-                                                                    if distance <= proximity_check_distance then
-                                                                        library:Notify(string.format("Player %s within %d studs after resume - serverhopping", other_player.Name, math.floor(distance)))
-                                                                        SafeServerhop(string.format("Player %s within %d studs after resume", other_player.Name, math.floor(proximity_check_distance)))
-                                                                        return
-                                                                    end
-                                                                end
-                                                            end
-                                                        end
-
-                                                        local character = plr.Character
-                                                        local forcefield_removed = false
-                                                        local teleport_platform = nil
-
-                                                        if character and FindFirstChild(character, "HumanoidRootPart") then
-                                                            local hrp = character.HumanoidRootPart
-                                                            local start_pos = hrp.Position
-
-                                                            teleport_platform = Instance.new("Part")
-                                                            teleport_platform.Size = Vector3.new(7, 1, 7)
-                                                            teleport_platform.Position = start_pos + Vector3.new(0, -3, 18)
-                                                            teleport_platform.Anchored = true
-                                                            teleport_platform.CanCollide = true
-                                                            teleport_platform.Transparency = 1
-                                                            teleport_platform.Parent = workspace
-
-                                                            trinket_bot.path_running = true
-                                                            SmoothTeleport(teleport_platform.Position + Vector3.new(0, 4, 0))
-                                                            task.wait(1.5)
-
-                                                            if character and not FindFirstChildOfClass(character, "ForceField") then
-                                                                forcefield_removed = true
-                                                                library:Notify("ForceField removed via SmoothTeleport")
-                                                            end
-
-                                                            if teleport_platform then
-                                                                teleport_platform:Destroy()
-                                                                teleport_platform = nil
-                                                            end
-                                                        end
-
-                                                        if forcefield_removed then
-                                                            library:Notify("ForceField removed - gating to last gate point")
-
-                                                            local gate_success = Gate(last_gate_point.gate_location)
-
-                                                            if gate_success then
-                                                                library:Notify(string.format("Successfully gated to last gate point %d - continuing to end then serverhopping", last_gate_index))
-
-                                                                local original_path = trinket_bot.path_points
-                                                                local temp_path = {}
-
-                                                                for i = last_gate_index + 1, #original_path do
-                                                                    table.insert(temp_path, original_path[i])
-                                                                end
-
-                                                                trinket_bot.path_points = temp_path
-
-                                                                if #temp_path == 0 then
-                                                                    library:Notify("Last gate point was final destination - serverhopping")
-                                                                    trinket_bot.path_running = false
-                                                                    TrinketBotServerhop("Completed path after resume gate")
-                                                                    return
-                                                                end
-
-                                                                first_point = temp_path[1] and temp_path[1].position
-
-                                                                trinket_bot.skip_distance_check = true
-
-                                                                trinket_bot.path_running = false
-
-                                                                library:Notify(string.format("Resuming path with %d remaining points", #temp_path))
-                                                                task.wait(0.5)
-
-                                                                if auto_start_death_connection then
-                                                                    pcall(function() auto_start_death_connection:Disconnect() end)
-                                                                    auto_start_death_connection = nil
-                                                                end
-
-                                                                ExecutePath(false)
-                                                                return
-                                                            else
-                                                                library:Notify("Resume gate to last point failed - serverhopping")
-                                                                trinket_bot.path_running = false
-                                                                TrinketBotServerhop("Resume gate failed after ForceField removal")
-                                                                return
-                                                            end
-                                                        else
-                                                            library:Notify("Could not remove ForceField - serverhopping")
-                                                            trinket_bot.path_running = false
-                                                            TrinketBotServerhop("Failed to remove ForceField for resume gate")
+                                            local proximity_check_distance = Options.ProximityCheck and Options.ProximityCheck.Value or 0
+                                            if proximity_check_distance > 0 and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                                                local char_pos = plr.Character.HumanoidRootPart.Position
+                                                for _, other_player in next, plrs:GetPlayers() do
+                                                    if other_player ~= plr and other_player.Character and other_player.Character:FindFirstChild("HumanoidRootPart") then
+                                                        local distance = (other_player.Character.HumanoidRootPart.Position - char_pos).Magnitude
+                                                        if distance <= proximity_check_distance then
+                                                            library:Notify(string.format("Player %s within %d studs after resume - serverhopping", other_player.Name, math.floor(distance)))
+                                                            SafeServerhop(string.format("Player %s within %d studs after resume", other_player.Name, math.floor(proximity_check_distance)))
                                                             return
                                                         end
-                                                    else
-                                                        library:Notify("No gate points found in path - serverhopping")
-                                                        TrinketBotServerhop("No gate points in path for resume")
-                                                        return
                                                     end
-                                                else
-                                                    library:Notify(string.format("Starting from point %d (%.0f studs away), following path to point 1", closest_point_index, closest_distance))
+                                                end
+                                            end
+
+                                            local character = plr.Character
+                                            local forcefield_removed = false
+                                            local teleport_platform = nil
+
+                                            if character and FindFirstChild(character, "HumanoidRootPart") then
+                                                local hrp = character.HumanoidRootPart
+                                                local start_pos = hrp.Position
+
+                                                teleport_platform = Instance.new("Part")
+                                                teleport_platform.Size = Vector3.new(7, 1, 7)
+                                                teleport_platform.Position = start_pos + Vector3.new(0, -3, 18)
+                                                teleport_platform.Anchored = true
+                                                teleport_platform.CanCollide = true
+                                                teleport_platform.Transparency = 1
+                                                teleport_platform.Parent = workspace
+
+                                                trinket_bot.path_running = true
+                                                SmoothTeleport(teleport_platform.Position + Vector3.new(0, 4, 0))
+                                                task.wait(1.5)
+
+                                                if character and not FindFirstChildOfClass(character, "ForceField") then
+                                                    forcefield_removed = true
+                                                    library:Notify("ForceField removed via SmoothTeleport")
+                                                end
+
+                                                if teleport_platform then
+                                                    teleport_platform:Destroy()
+                                                    teleport_platform = nil
+                                                end
+                                            end
+
+                                            if forcefield_removed then
+                                                library:Notify("ForceField removed - gating to last gate point")
+
+                                                local gate_success = Gate(last_gate_point.gate_location)
+
+                                                if gate_success then
+                                                    library:Notify(string.format("Successfully gated to last gate point %d - routing back to point 1", last_gate_index))
 
                                                     local original_path = trinket_bot.path_points
                                                     local original_point_1_pos = original_path[1].position
                                                     local temp_path = {}
 
-                                                    for i = closest_point_index, #original_path do
+                                                    for i = last_gate_index + 1, #original_path do
                                                         table.insert(temp_path, original_path[i])
                                                     end
 
-                                                    for i = 1, closest_point_index - 1 do
+                                                    for i = 1, last_gate_index do
                                                         table.insert(temp_path, original_path[i])
                                                     end
 
                                                     trinket_bot.path_points = temp_path
                                                     trinket_bot.original_point_1_position = original_point_1_pos
-                                                end
-                                            end
-                                        else
-                                            library:Notify(string.format("Too far from path (%.1f studs) - attempting recovery", closest_distance))
 
-                                            if saved_position then
-                                                local saved_closest_idx = 1
-                                                local saved_closest_dist = (saved_position - trinket_bot.path_points[1].position).Magnitude
-                                                for idx, path_point in ipairs(trinket_bot.path_points) do
-                                                    local dist = (saved_position - path_point.position).Magnitude
-                                                    if dist < saved_closest_dist then
-                                                        saved_closest_dist = dist
-                                                        saved_closest_idx = idx
-                                                    end
-                                                end
-
-                                                library:Notify(string.format("Far recovery with saved position - closest point %d is %.1f studs from saved pos", saved_closest_idx, saved_closest_dist))
-                                                task.wait(1)
-
-                                                local prox_check_dist = Options.ProximityCheck and Options.ProximityCheck.Value or 0
-                                                if prox_check_dist > 0 and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                                                    local char_pos = plr.Character.HumanoidRootPart.Position
-                                                    for _, other_player in next, plrs:GetPlayers() do
-                                                        if other_player ~= plr and other_player.Character and other_player.Character:FindFirstChild("HumanoidRootPart") then
-                                                            local dist = (other_player.Character.HumanoidRootPart.Position - char_pos).Magnitude
-                                                            if dist <= prox_check_dist then
-                                                                library:Notify(string.format("Player %s within %d studs during far recovery - serverhopping", other_player.Name, math.floor(dist)))
-                                                                SafeServerhop(string.format("Player %s within %d studs during far path recovery", other_player.Name, math.floor(prox_check_dist)))
-                                                                return
-                                                            end
-                                                        end
-                                                    end
-                                                end
-
-                                                local recovery_character = plr.Character
-                                                local recovery_ff_removed = false
-                                                local recovery_teleport_platform = nil
-
-                                                if recovery_character and FindFirstChild(recovery_character, "HumanoidRootPart") then
-                                                    recovery_teleport_platform = Instance.new("Part")
-                                                    recovery_teleport_platform.Size = Vector3.new(7, 1, 7)
-                                                    recovery_teleport_platform.Position = saved_position + Vector3.new(0, -3, -18)
-                                                    recovery_teleport_platform.Anchored = true
-                                                    recovery_teleport_platform.CanCollide = true
-                                                    recovery_teleport_platform.Transparency = 1
-                                                    recovery_teleport_platform.Parent = workspace
-
-                                                    trinket_bot.path_running = true
-                                                    SmoothTeleport(recovery_teleport_platform.Position + Vector3.new(0, 4, 0))
-                                                    task.wait(1.5)
-
-                                                    if recovery_character and not FindFirstChildOfClass(recovery_character, "ForceField") then
-                                                        recovery_ff_removed = true
-                                                        library:Notify("ForceField removed at saved position for far recovery")
-                                                    end
-
-                                                    if recovery_teleport_platform then
-                                                        recovery_teleport_platform:Destroy()
-                                                        recovery_teleport_platform = nil
-                                                    end
-                                                end
-
-                                                if recovery_ff_removed then
-                                                    library:Notify(string.format("Continuing path from point %d after far recovery", saved_closest_idx))
-
-                                                    local recovery_original_path = trinket_bot.path_points
-                                                    local recovery_original_point_1_pos = recovery_original_path[1].position
-                                                    local recovery_temp_path = {}
-
-                                                    for i = saved_closest_idx, #recovery_original_path do
-                                                        table.insert(recovery_temp_path, recovery_original_path[i])
-                                                    end
-                                                    for i = 1, saved_closest_idx - 1 do
-                                                        table.insert(recovery_temp_path, recovery_original_path[i])
-                                                    end
-
-                                                    trinket_bot.path_points = recovery_temp_path
-                                                    trinket_bot.original_point_1_position = recovery_original_point_1_pos
                                                     trinket_bot.skip_distance_check = true
                                                     trinket_bot.path_running = false
 
-                                                    library:Notify(string.format("Resuming path with %d points after far recovery (starting from point %d)", #recovery_temp_path, saved_closest_idx))
+                                                    library:Notify(string.format("Resuming path with %d points (starting from point %d to point 1)", #temp_path, last_gate_index + 1))
+                                                    utility:plain_webhook(string.format("Bot gated to point %d to resume path and return to point 1", last_gate_index))
                                                     task.wait(0.5)
 
                                                     if auto_start_death_connection then
@@ -17231,142 +16994,21 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                     ExecutePath(false)
                                                     return
                                                 else
-                                                    library:Notify("Could not remove ForceField at saved position - falling back to gate recovery")
-                                                end
-                                            end
-
-                                            local path_has_gates_recovery = false
-                                            for _, check_point in ipairs(trinket_bot.path_points) do
-                                                if check_point.is_gate_point then
-                                                    path_has_gates_recovery = true
-                                                    break
-                                                end
-                                            end
-
-                                            if path_has_gates_recovery then
-                                                local recovery_gate_point = nil
-                                                local recovery_gate_index = nil
-                                                for idx = #trinket_bot.path_points, 1, -1 do
-                                                    if trinket_bot.path_points[idx].is_gate_point then
-                                                        recovery_gate_point = trinket_bot.path_points[idx]
-                                                        recovery_gate_index = idx
-                                                        break
-                                                    end
-                                                end
-
-                                                if recovery_gate_point then
-                                                    library:Notify(string.format("Far from path recovery - respawning before gating to last gate point %d", recovery_gate_index))
-                                                    task.wait(1)
-
-                                                    local prox_check_dist = Options.ProximityCheck and Options.ProximityCheck.Value or 0
-                                                    if prox_check_dist > 0 and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                                                        local char_pos = plr.Character.HumanoidRootPart.Position
-
-                                                        for _, other_player in next, plrs:GetPlayers() do
-                                                            if other_player ~= plr and other_player.Character and other_player.Character:FindFirstChild("HumanoidRootPart") then
-                                                                local dist = (other_player.Character.HumanoidRootPart.Position - char_pos).Magnitude
-
-                                                                if dist <= prox_check_dist then
-                                                                    library:Notify(string.format("Player %s within %d studs during far recovery - serverhopping", other_player.Name, math.floor(dist)))
-                                                                    SafeServerhop(string.format("Player %s within %d studs during far path recovery", other_player.Name, math.floor(prox_check_dist)))
-                                                                    return
-                                                                end
-                                                            end
-                                                        end
-                                                    end
-
-                                                    local gate_recovery_character = plr.Character
-                                                    local gate_recovery_ff_removed = false
-                                                    local gate_recovery_teleport_platform = nil
-
-                                                    if gate_recovery_character and FindFirstChild(gate_recovery_character, "HumanoidRootPart") then
-                                                        local hrp = gate_recovery_character.HumanoidRootPart
-
-                                                        gate_recovery_teleport_platform = Instance.new("Part")
-                                                        gate_recovery_teleport_platform.Size = Vector3.new(7, 1, 7)
-                                                        gate_recovery_teleport_platform.Position = hrp.Position + Vector3.new(0, -3, 18)
-                                                        gate_recovery_teleport_platform.Anchored = true
-                                                        gate_recovery_teleport_platform.CanCollide = true
-                                                        gate_recovery_teleport_platform.Transparency = 1
-                                                        gate_recovery_teleport_platform.Parent = workspace
-
-                                                        trinket_bot.path_running = true
-                                                        SmoothTeleport(gate_recovery_teleport_platform.Position + Vector3.new(0, 4, 0))
-                                                        task.wait(1.5)
-
-                                                        if gate_recovery_character and not FindFirstChildOfClass(gate_recovery_character, "ForceField") then
-                                                            gate_recovery_ff_removed = true
-                                                            library:Notify("ForceField removed for far path recovery")
-                                                        end
-
-                                                        if gate_recovery_teleport_platform then
-                                                            gate_recovery_teleport_platform:Destroy()
-                                                            gate_recovery_teleport_platform = nil
-                                                        end
-                                                    end
-
-                                                    if gate_recovery_ff_removed then
-                                                        library:Notify("ForceField removed - gating to last gate point for recovery")
-
-                                                        local recovery_gate_success = Gate(recovery_gate_point.gate_location)
-
-                                                        if recovery_gate_success then
-                                                            library:Notify(string.format("Successfully gated to last gate point %d - continuing to end then serverhopping", recovery_gate_index))
-
-                                                            local recovery_original_path = trinket_bot.path_points
-                                                            local recovery_temp_path = {}
-
-                                                            for idx = recovery_gate_index + 1, #recovery_original_path do
-                                                                table.insert(recovery_temp_path, recovery_original_path[idx])
-                                                            end
-
-                                                            trinket_bot.path_points = recovery_temp_path
-
-                                                            if #recovery_temp_path == 0 then
-                                                                library:Notify("Last gate point was final destination - serverhopping")
-                                                                trinket_bot.path_running = false
-                                                                TrinketBotServerhop("Completed path after far recovery gate")
-                                                                return
-                                                            end
-
-                                                            first_point = recovery_temp_path[1] and recovery_temp_path[1].position
-
-                                                            trinket_bot.skip_distance_check = true
-                                                            trinket_bot.path_running = false
-
-                                                            library:Notify(string.format("Resuming path with %d remaining points after far recovery", #recovery_temp_path))
-                                                            task.wait(0.5)
-
-                                                            if auto_start_death_connection then
-                                                                pcall(function() auto_start_death_connection:Disconnect() end)
-                                                                auto_start_death_connection = nil
-                                                            end
-
-                                                            ExecutePath(false)
-                                                            return
-                                                        else
-                                                            library:Notify("Far recovery gate failed - serverhopping")
-                                                            trinket_bot.path_running = false
-                                                            TrinketBotServerhop("Far recovery gate failed after ForceField removal")
-                                                            return
-                                                        end
-                                                    else
-                                                        library:Notify("Could not remove ForceField for far recovery - serverhopping")
-                                                        trinket_bot.path_running = false
-                                                        TrinketBotServerhop("Failed to remove ForceField for far recovery gate")
-                                                        return
-                                                    end
-                                                else
-                                                    library:Notify("No gate points found for far recovery - serverhopping")
-                                                    TrinketBotServerhop("No gate points in path for far recovery")
+                                                    library:Notify("Resume gate to last point failed - serverhopping")
+                                                    trinket_bot.path_running = false
+                                                    TrinketBotServerhop("Resume gate failed after ForceField removal")
                                                     return
                                                 end
                                             else
-                                                library:Notify(string.format("Too far from path (%.1f studs) and no gates available - serverhopping", closest_distance))
-                                                utility:plain_webhook(string.format("Bot too far from path (%.1f studs) with no gates - serverhopping", closest_distance))
-                                                TrinketBotServerhop("Too far from path with no gates for recovery")
+                                                library:Notify("Could not remove ForceField - serverhopping")
+                                                trinket_bot.path_running = false
+                                                TrinketBotServerhop("Failed to remove ForceField for resume gate")
                                                 return
                                             end
+                                        else
+                                            library:Notify("No gate points found in path - serverhopping")
+                                            TrinketBotServerhop("No gate points in path for resume")
+                                            return
                                         end
                                     end
                                 end
