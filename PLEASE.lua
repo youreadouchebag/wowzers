@@ -15,6 +15,8 @@ local Services = setmetatable({}, {
     end
 })
 
+-- Nah word?
+
 local Players = Services.Players
 repeat task.wait() until Players.LocalPlayer
 repeat task.wait() until Players.LocalPlayer.Backpack
@@ -19559,9 +19561,9 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     local success, result = pcall(function()
                         local content
                         if cheat_client.config.webhook_show_username ~= false then
-                            content = string.format("||[**%s**]|| Test message from hydroxide.solutions", plr.Name)
+                            content = string.format("||[**%s**]|| I GOT A BAD BITCH ALL DAY ALL NIGHT", plr.Name)
                         else
-                            content = "Test message from hydroxide.solutions"
+                            content = "Test message from I GOT A BAD BITCH ALL DAY ALL NIGHT"
                         end
 
                         print("[WEBHOOK DEBUG] Calling webhook with content:", content)
