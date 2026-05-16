@@ -3726,22 +3726,23 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         "**Server Join Info**\n" ..
                         "**Server Age:** `%s`\n" ..
                         "**Region:** `%s`\n" ..
-                        "**Players:** `%d/%d`\n\n" ..
+                        "**Players:** `%s/%s`\n\n" ..
                         "> Castle Rock: `%s`\n" ..
                         "> Crypt/Sunken: `%s`\n" ..
                         "> Temple of Fire: `%s`\n\n" ..
                         "**JobId:** `%s`\n" ..
-                        "**PlaceId:** `%d`\n" ..
+                        "**PlaceId:** `%s`\n" ..
                         "**Time:** `%s`",
-                        format_time(server_age),
-                        server_region ~= "" and server_region or "Unknown",
-                        player_count,
-                        max_players,
-                        get_last_looted("cr"),
-                        get_last_looted("deepsunken"),
-                        get_last_looted("temple"),
-                        game.JobId,
-                        os.date("%X")
+                        tostring(format_time(server_age)),
+                        tostring(server_region ~= "" and server_region or "Unknown"),
+                        tostring(player_count),
+                        tostring(max_players),
+                        tostring(get_last_looted("cr")),
+                        tostring(get_last_looted("deepsunken")),
+                        tostring(get_last_looted("temple")),
+                        tostring(game.JobId),
+                        tostring(game.PlaceId),
+                        tostring(os.date("%X"))
                     )
                     utility:plain_webhook(log_text)
                 end)
