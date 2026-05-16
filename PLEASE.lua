@@ -3731,8 +3731,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         "> Crypt/Sunken: `%s`\n" ..
                         "> Temple of Fire: `%s`\n\n" ..
                         "**JobId:** `%s`\n" ..
-                        "**PlaceId:** `%s`\n" ..
-                        "**Time:** `%s`",
+                        "**PlaceId:** `%s`",
                         tostring(format_time(server_age)),
                         tostring(server_region ~= "" and server_region or "Unknown"),
                         tostring(player_count),
@@ -3741,8 +3740,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         tostring(get_last_looted("deepsunken")),
                         tostring(get_last_looted("temple")),
                         tostring(game.JobId),
-                        tostring(game.PlaceId),
-                        tostring(os.date("%X"))
+                        tostring(game.PlaceId)
                     )
                     utility:plain_webhook(log_text)
                 end)
