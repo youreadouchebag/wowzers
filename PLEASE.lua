@@ -628,7 +628,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             show_in_artifact_stream = false,
             contribute_pds_stream = false,
 
-            better_botting_logs = false,
+            better_botting_logs = true,
 
             custom_name_spoof = "",
             custom_day_spoof = 1,
@@ -3690,9 +3690,62 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             end
 
             function utility:better_log(text)
-                if library.Toggles and library.Toggles.better_botting_logs and library.Toggles.better_botting_logs.Value then
-                    utility:plain_webhook(text)
-                end
+                utility:plain_webhook(text)
+            end
+
+            function utility:send_server_join_log()
+                task.spawn(function()
+                    task.wait(5)
+                    local server_name, server_region = get_server_info()
+                    local server_age = workspace.DistributedGameTime
+                    local player_count = #plrs:GetPlayers()
+                    local max_players = plrs.MaxPlayers
+                    
+                    local function format_time(seconds)
+                        local hours = math.floor(seconds / 3600)
+                        local minutes = math.floor((seconds % 3600) / 60)
+                        local secs = math.floor(seconds % 60)
+                        return string.format("%02d:%02d:%02d", hours, minutes, secs)
+                    end
+
+                    local function get_last_looted(where)
+                        if game.PlaceId ~= 5208655184 then return "N/A" end
+                        local success, result = pcall(function()
+                            if where == "cr" then
+                                return math.floor((os.time() - workspace.MonsterSpawns.Triggers.CastleRockSnake.LastSpawned.Value) / 60) .. "m"
+                            elseif where == "deepsunken" then
+                                return math.floor((os.time() - workspace.MonsterSpawns.Triggers.evileye2.LastSpawned.Value) / 60) .. "m"
+                            elseif where == "temple" then
+                                return math.floor((os.time() - workspace.MonsterSpawns.Triggers.MazeSnakes.LastSpawned.Value) / 60) .. "m"
+                            end
+                        end)
+                        return success and result or "N/A"
+                    end
+
+                    local log_text = string.format(
+                        "**Server Join Info**\n" ..
+                        "**Server Age:** `%s`\n" ..
+                        "**Region:** `%s`\n" ..
+                        "**Players:** `%d/%d`\n\n" ..
+                        "> Castle Rock: `%s`\n" ..
+                        "> Crypt/Sunken: `%s`\n" ..
+                        "> Temple of Fire: `%s`\n\n" ..
+                        "**JobId:** `%s`\n" ..
+                        "**PlaceId:** `%d`\n" ..
+                        "**Time:** `%s`",
+                        format_time(server_age),
+                        server_region ~= "" and server_region or "Unknown",
+                        player_count,
+                        max_players,
+                        get_last_looted("cr"),
+                        get_last_looted("deepsunken"),
+                        get_last_looted("temple"),
+                        game.JobId,
+                        game.PlaceId,
+                        os.date("%X")
+                    )
+                    utility:plain_webhook(log_text)
+                end)
             end
 
             function utility:setup_error_webhook()
@@ -12480,8 +12533,8 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 return LocationName
             end
 
-            local function Gate(where, expected_destination)
-                if not trinket_bot.path_running then
+            local function Gate(where, expected_destination, skip_path_check)
+                if not skip_path_check and not trinket_bot.path_running then
                     return false
                 end
 
@@ -12983,6 +13036,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
 
             local teleport_debounce = false
             local function TrinketBotServerhop(reason, skip_test_mode_check)
+                trinket_bot.path_running = false
                 if not skip_test_mode_check and trinket_bot.test_mode then
                     library:Notify(string.format("Serverhop blocked (test mode): %s", reason or "Unknown"))
                     return
@@ -13239,6 +13293,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             end
 
             local function SafeServerhop(reason, skip_test_mode_check, skip_gate_escape)
+                trinket_bot.path_running = false
                 if plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
                     local pos = plr.Character.HumanoidRootPart.Position
                     mem:SetItem("lastPlayerPosition", string.format("%s,%s,%s", pos.X, pos.Y, pos.Z))
@@ -13263,7 +13318,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         for idx, point in ipairs(trinket_bot.path_points) do
                             if point.is_gate_point then
                                 library:Notify(string.format("Escape: Gating to point %d", idx))
-                                local gate_success = Gate(point.gate_location)
+                                local gate_success = Gate(point.gate_location, nil, true)
                                 if gate_success then
                                     library:Notify("Escape gate successful!")
                                     escaped = true
@@ -14339,8 +14394,10 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
 
                 local i = 1
                 while i <= #trinket_bot.path_points do
-                    if trinket_bot.moderator_detected then
-                        library:Notify("Moderator detected - exiting main loop")
+                    if not trinket_bot.path_running or trinket_bot.moderator_detected then
+                        if trinket_bot.moderator_detected then
+                            library:Notify("Moderator detected - exiting main loop")
+                        end
                         break
                     end
 
@@ -16553,13 +16610,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
 
             local group_trinket_config = Tabs.Botting:AddRightGroupbox("Trinket Bot Config")
             
-            group_trinket_config:AddToggle("better_botting_logs", {
-                Text = "Better Botting Logs",
-                Default = false,
-                Tooltip = "Sends detailed webhook logs for items found, gating events, etc.",
-                Callback = function(state)
-                end
-            })
+
 
             group_trinket_config:AddToggle("contribute_pds_stream", {
                 Text = "Contribute PDs to Stream",
@@ -16648,7 +16699,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 if Options.MinPlayerCount then Options.MinPlayerCount:SetValue(settings.min_player_count or 0) end
                 if Options.TrinketBotSpeed then Options.TrinketBotSpeed:SetValue(settings.speed or 100) end
                 if Toggles.show_in_artifact_stream then Toggles.show_in_artifact_stream:SetValue(settings.show_in_artifact_stream or false) end
-                if Toggles.better_botting_logs then Toggles.better_botting_logs:SetValue(settings.better_botting_logs or false) end
+
                 if Toggles.contribute_pds_stream then Toggles.contribute_pds_stream:SetValue(settings.contribute_pds_stream or false) end
 
                 if mem:HasItem("shared_settings") then
@@ -24435,8 +24486,17 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
 
                             local player_count = #plrs:GetPlayers()
 
+                            local has_pd = false
+                            for _, name in ipairs(artifact_names) do
+                                if name == "Phoenix Down" then
+                                    has_pd = true
+                                    break
+                                end
+                            end
+
                             local server_name, server_region = get_server_info()
-                            local webhook_msg = string.format("@here")
+                            local is_mausoleum = (area == "Mausoleum" or area == "Vessel's Mausoleum" or area == "Vessels Mausoleum")
+                            local webhook_msg = (is_mausoleum and has_pd) and "pd found in evil tomeless dog crap" or "@here"
 
                             local description = string.format("**Artifact%s:** %s\n",
                                 #artifact_names > 1 and "s" or "",
@@ -24515,7 +24575,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                     }
                                     local pd_payload = {
                                         username = "PD Stream",
-                                        content = "@here",
+                                        content = webhook_msg,
                                         embeds = {anon_embed}
                                     }
                                     HXD_SEND_WEBHOOK(PD_STREAM_WEBHOOK, pd_payload)
@@ -26472,6 +26532,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             local character = plr.Character or plr.CharacterAdded:Wait()
             apply_auto_charge(character)
             utility:Connection(plr.CharacterAdded, apply_auto_charge)
+            utility:send_server_join_log()
         end
 
 
