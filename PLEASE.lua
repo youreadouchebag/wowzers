@@ -59,7 +59,7 @@ do
             local code = res.StatusCode or res.statusCode or 200
             return code >= 200 and code < 300
         end
-        warn("[rabbihub] Script error:", err)
+
     end
 end
 local anticheat_mode = "Normal"
@@ -91,7 +91,7 @@ for i = 1, #Required do
 	local v = Required[i]
 	if not getgenv()[v] then
         Kick(Services.Players.LocalPlayer, `bad executor sorry kid`)
-        warn("[rabbihub] Script error:", err)
+
     end
 end
 local function process_string(str, salt)
@@ -13317,6 +13317,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                             if point.is_gate_point then
                                 library:Notify(string.format("Escape: Gating to point %d", idx))
                                 local gate_success = Gate(point.gate_location, nil, true)
+                                	task.wait(1.5)
                                 if gate_success then
                                     library:Notify("Escape gate successful!")
                                     escaped = true
@@ -13847,7 +13848,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         for _, other_player in next, plrs:GetPlayers() do
                             if other_player ~= plr and other_player.Character then
                                 for _, tool in next, other_player.Character:GetChildren() do
-                                    if tool:IsA("Tool") and emergency_conditions[tool.Name] then
+                                    if tool:IsA("Tool") and emergency_conditions[tool.Name] and tool.Parent == other_player.Character then
                                         library:Notify(string.format("Player %s already has %s - instant serverhop!", other_player.Name, tool.Name))
                                         trinket_bot.path_running = false
                                         TrinketBotServerhop(string.format("Player %s (%s) has dangerous item: %s - instant serverhop (detected on bot start)", other_player.Name, other_player.UserId, tool.Name))
@@ -13875,7 +13876,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                 ancestor = ancestor.Parent
                             end
 
-                            if owner_player and owner_player ~= plr then
+                            if owner_player and owner_player ~= plr and descendant.Parent == owner_player.Character then
                                 library:Notify(string.format("Player %s has %s - instant serverhop!", owner_player.Name, descendant.Name))
                                 trinket_bot.path_running = false
                                 TrinketBotServerhop(string.format("Player %s (%s) has dangerous item: %s - instant serverhop", owner_player.Name, owner_player.UserId, descendant.Name))
@@ -14170,7 +14171,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                         state.lastSeen = now
                                     end
 
-                                    if not emergency_gate_requested then
+                                    if not emergency_gate_requested and not emergency_gate_in_progress then
                                         local encounter_data = player_encounters[other_player.UserId]
                                         if not encounter_data then
                                             player_encounters[other_player.UserId] = {
@@ -14359,34 +14360,42 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 if plr.Character and FindFirstChildOfClass(plr.Character, "ForceField") then
                     library:Notify("Removing ForceField before starting path...")
                     local character = plr.Character
-                    local teleport_platform = nil
-
                     if character and FindFirstChild(character, "HumanoidRootPart") then
                         local hrp = character.HumanoidRootPart
                         local start_pos = hrp.Position
-
-                        teleport_platform = Instance.new("Part")
-                        teleport_platform.Size = Vector3.new(7, 1, 7)
-                        teleport_platform.Position = start_pos + Vector3.new(0, -3, 18)
-                        teleport_platform.Anchored = true
-                        teleport_platform.CanCollide = true
-                        teleport_platform.Transparency = 1
-                        teleport_platform.Parent = workspace
+                        local target_pos = start_pos + Vector3.new(0, 0, 18)
+                        local grounded = false
+                        local rayParams = RaycastParams.new()
+                        rayParams.FilterDescendantsInstances = {character}
+                        rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                        local rayResult = workspace:Raycast(target_pos, Vector3.new(0, -500, 0), rayParams)
+                        
+                        if rayResult then
+                            target_pos = rayResult.Position + Vector3.new(0, 3, 0)
+                            grounded = true
+                        else
+                            if trinket_bot.path_points and #trinket_bot.path_points > 0 then
+                                local nearest_dist = math.huge
+                                for _, pt in ipairs(trinket_bot.path_points) do
+                                    local d = (pt.position - start_pos).Magnitude
+                                    if d > 10 and d < nearest_dist then
+                                        nearest_dist = d
+                                        target_pos = pt.position
+                                        grounded = true
+                                    end
+                                end
+                            end
+                        end
 
                         trinket_bot.path_running = true
-                        SmoothTeleport(teleport_platform.Position + Vector3.new(0, 4, 0))
-                        task.wait(1.5)
+                        if grounded then
+                            SmoothTeleport(CFrame.new(target_pos))
+                            task.wait(1.5)
+                        end
 
                         if character and not FindFirstChildOfClass(character, "ForceField") then
                             library:Notify("ForceField removed - starting path")
                         end
-
-                        if teleport_platform then
-                            teleport_platform:Destroy()
-                        end
-
-                        SmoothTeleport(start_pos)
-                        task.wait(0.5)
                     end
                 end
 
@@ -14417,32 +14426,42 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                             end
 
                             if last_gate_index then
-                                local stabilization_platform = nil
                                 if plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
                                     local humanoid = FindFirstChildOfClass(plr.Character, "Humanoid")
                                     local is_in_air = humanoid and (humanoid:GetState() == Enum.HumanoidStateType.Freefall or humanoid:GetState() == Enum.HumanoidStateType.Flying)
 
                                     if is_in_air then
-                                        library:Notify("Bot in air [1]")
+                                        library:Notify("Bot in air [1] - grounding")
                                         local hrp = plr.Character.HumanoidRootPart
+                                        local grounded = false
+                                        local rayParams = RaycastParams.new()
+                                        rayParams.FilterDescendantsInstances = {plr.Character}
+                                        rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                                        local rayResult = workspace:Raycast(hrp.Position, Vector3.new(0, -500, 0), rayParams)
 
-                                        stabilization_platform = Instance.new("Part")
-                                        stabilization_platform.Size = Vector3.new(10, 1, 10)
-                                        stabilization_platform.Position = hrp.Position - Vector3.new(0, 5, 0)
-                                        stabilization_platform.Anchored = true
-                                        stabilization_platform.CanCollide = true
-                                        stabilization_platform.Transparency = 1
-                                        stabilization_platform.Parent = workspace
+                                        if rayResult then
+                                            local ground_pos = rayResult.Position + Vector3.new(0, 3, 0)
+                                            SmoothTeleport(CFrame.new(ground_pos))
+                                            grounded = true
+                                        end
 
-                                        task.wait(0.3)
+                                        if not grounded and trinket_bot.path_points and #trinket_bot.path_points > 0 then
+                                            local nearest_dist = math.huge
+                                            local nearest_pos = nil
+                                            for _, pt in ipairs(trinket_bot.path_points) do
+                                                local d = (pt.position - hrp.Position).Magnitude
+                                                if d < nearest_dist then nearest_dist = d; nearest_pos = pt.position end
+                                            end
+                                            if nearest_pos then
+                                                SmoothTeleport(CFrame.new(nearest_pos))
+                                            end
+                                        end
+                                        task.wait(1.5)
                                     end
                                 end
 
                                 local gate_success = Gate(trinket_bot.path_points[last_gate_index].gate_location)
-                                if stabilization_platform then
-                                    stabilization_platform:Destroy()
-                                    stabilization_platform = nil
-                                end
+                                	task.wait(1.5)
 
                                 if gate_success then
                                     library:Notify(string.format("Gated to last gate point %d - continuing to end", last_gate_index))
@@ -14476,29 +14495,41 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         if last_gate_index and i < last_gate_index then
                             library:Notify(string.format("%s found - gating to last gate point %d", kick_trinket_name, last_gate_index))
 
-                            local stabilization_platform = nil
                             if plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
                                 local humanoid = FindFirstChildOfClass(plr.Character, "Humanoid")
                                 local is_in_air = humanoid and (humanoid:GetState() == Enum.HumanoidStateType.Freefall or humanoid:GetState() == Enum.HumanoidStateType.Flying)
 
                                 if is_in_air then
                                     local hrp = plr.Character.HumanoidRootPart
-                                    stabilization_platform = Instance.new("Part")
-                                    stabilization_platform.Size = Vector3.new(10, 1, 10)
-                                    stabilization_platform.Position = hrp.Position - Vector3.new(0, 5, 0)
-                                    stabilization_platform.Anchored = true
-                                    stabilization_platform.CanCollide = true
-                                    stabilization_platform.Transparency = 1
-                                    stabilization_platform.Parent = workspace
-                                    task.wait(0.3)
+                                    local grounded = false
+                                    local rayParams = RaycastParams.new()
+                                    rayParams.FilterDescendantsInstances = {plr.Character}
+                                    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                                    local rayResult = workspace:Raycast(hrp.Position, Vector3.new(0, -500, 0), rayParams)
+
+                                    if rayResult then
+                                        local ground_pos = rayResult.Position + Vector3.new(0, 3, 0)
+                                        SmoothTeleport(CFrame.new(ground_pos))
+                                        grounded = true
+                                    end
+
+                                    if not grounded and trinket_bot.path_points and #trinket_bot.path_points > 0 then
+                                        local nearest_dist = math.huge
+                                        local nearest_pos = nil
+                                        for _, pt in ipairs(trinket_bot.path_points) do
+                                            local d = (pt.position - hrp.Position).Magnitude
+                                            if d < nearest_dist then nearest_dist = d; nearest_pos = pt.position end
+                                        end
+                                        if nearest_pos then
+                                            SmoothTeleport(CFrame.new(nearest_pos))
+                                        end
+                                    end
+                                    task.wait(1.5)
                                 end
                             end
 
                             local gate_success = Gate(trinket_bot.path_points[last_gate_index].gate_location)
-                            if stabilization_platform then
-                                stabilization_platform:Destroy()
-                                stabilization_platform = nil
-                            end
+                            	task.wait(1.5)
 
                             if gate_success then
                                 library:Notify(string.format("Gated to last gate point %d - continuing to end then kicking", last_gate_index))
@@ -14520,6 +14551,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                             if skip_point.is_gate_point then
                                 library:Notify(string.format("Ice Dragon escape: gating to point %d", ice_dragon_skip_index))
                                 local gate_success = Gate(skip_point.gate_location)
+                                	task.wait(1.5)
                                 if gate_success then
                                     i = ice_dragon_skip_index + 1
                                     ice_dragon_skip_index = nil
@@ -14550,6 +14582,70 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         local player_name = emergency_gate_requested.player_name
                         emergency_gate_in_progress = true
                         emergency_gate_requested = nil
+
+                        -- Cancel active path movement immediately so bot stops in place
+                        if active_tween_data.tween then
+                            active_tween_data.tween:Cancel()
+                            active_tween_data.tween = nil
+                        end
+                        if active_tween_data.connection then
+                            active_tween_data.connection:Disconnect()
+                            active_tween_data.connection = nil
+                        end
+                        -- If bot is in the air, ground it before gating (gates require solid ground)
+                        if plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
+                            local humanoid = FindFirstChildOfClass(plr.Character, "Humanoid")
+                            local hrp = plr.Character.HumanoidRootPart
+                            if humanoid then
+                                humanoid:SetStateEnabled(5, true)
+                                humanoid:ChangeState(5)
+
+                                local is_in_air = humanoid:GetState() == Enum.HumanoidStateType.Freefall or humanoid:GetState() == Enum.HumanoidStateType.Flying
+                                if is_in_air then
+                                    library:Notify("Bot in air during emergency gate - grounding")
+                                    utility:better_log("Bot in air during emergency gate - attempting to ground via raycast")
+
+                                    -- Method 1: Raycast down to find ground and teleport there
+                                    local grounded = false
+                                    local rayParams = RaycastParams.new()
+                                    rayParams.FilterDescendantsInstances = {plr.Character}
+                                    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                                    local rayResult = ws:Raycast(hrp.Position, Vector3.new(0, -500, 0), rayParams)
+
+                                    if rayResult then
+                                        local ground_pos = rayResult.Position + Vector3.new(0, 3, 0)
+                                        SmoothTeleport(CFrame.new(ground_pos))
+                                        grounded = true
+                                        library:Notify(string.format("Grounded via raycast (%.0f studs below)", (hrp.Position - ground_pos).Magnitude + 3))
+                                    end
+
+                                    -- Method 2: If raycast failed (void), snap to nearest path point
+                                    if not grounded and trinket_bot.path_points and #trinket_bot.path_points > 0 then
+                                        local nearest_dist = math.huge
+                                        local nearest_pos = nil
+                                        for _, pt in ipairs(trinket_bot.path_points) do
+                                            local d = (pt.position - hrp.Position).Magnitude
+                                            if d < nearest_dist then
+                                                nearest_dist = d
+                                                nearest_pos = pt.position
+                                            end
+                                        end
+                                        if nearest_pos then
+                                            SmoothTeleport(CFrame.new(nearest_pos))
+                                            library:Notify(string.format("Grounded via nearest path point (%.0f studs away)", nearest_dist))
+                                            utility:better_log(string.format("Raycast failed - grounded via nearest path point (%.0f studs)", nearest_dist))
+                                        end
+                                    end
+                                    task.wait(1.5)
+                                end
+                            end
+                        elseif plr.Character then
+                            local humanoid = FindFirstChildOfClass(plr.Character, "Humanoid")
+                            if humanoid then
+                                humanoid:SetStateEnabled(5, true)
+                                humanoid:ChangeState(5)
+                            end
+                        end
 
                         if action == "gate_next" then
                             library:Notify(string.format("First encounter with %s - emergency gating to next gate point", player_name))
@@ -14624,7 +14720,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                             utility:better_log(string.format("Emergency gate attempted but SnapCool active + player in critical range (%.0f studs) - instant serverhop to escape %s", closest_player_dist, player_name))
                                         end
                                         library:Notify(string.format("Emergency gate attempted but SnapCool active + player in critical range (%.0f studs) - instant serverhop to escape %s", closest_player_dist, player_name))
-                                        emergency_gate_in_progress = false
+                                    emergency_gate_in_progress = false
                                         trinket_bot.path_running = false
                                         TrinketBotServerhop(string.format("Emergency gate with SnapCool + player in critical range while escaping %s", player_name))
                                         return
@@ -14633,16 +14729,38 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                         local snapcool_wait_start = tick()
                                         local max_snapcool_wait = 10
 
-                                        local snapcool_wait_platform = nil
                                         if plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
-                                            local hrp = plr.Character.HumanoidRootPart
-                                            snapcool_wait_platform = Instance.new("Part")
-                                            snapcool_wait_platform.Size = Vector3.new(10, 1, 10)
-                                            snapcool_wait_platform.Position = hrp.Position - Vector3.new(0, 3, 0)
-                                            snapcool_wait_platform.Anchored = true
-                                            snapcool_wait_platform.CanCollide = true
-                                            snapcool_wait_platform.Transparency = 1
-                                            snapcool_wait_platform.Parent = workspace
+                                            local humanoid = FindFirstChildOfClass(plr.Character, "Humanoid")
+                                            local is_in_air = humanoid and (humanoid:GetState() == Enum.HumanoidStateType.Freefall or humanoid:GetState() == Enum.HumanoidStateType.Flying)
+
+                                            if is_in_air then
+                                                library:Notify("Bot in air during SnapCool wait - grounding")
+                                                local hrp = plr.Character.HumanoidRootPart
+                                                local grounded = false
+                                                local rayParams = RaycastParams.new()
+                                                rayParams.FilterDescendantsInstances = {plr.Character}
+                                                rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                                                local rayResult = workspace:Raycast(hrp.Position, Vector3.new(0, -500, 0), rayParams)
+
+                                                if rayResult then
+                                                    local ground_pos = rayResult.Position + Vector3.new(0, 3, 0)
+                                                    SmoothTeleport(CFrame.new(ground_pos))
+                                                    grounded = true
+                                                end
+
+                                                if not grounded and trinket_bot.path_points and #trinket_bot.path_points > 0 then
+                                                    local nearest_dist = math.huge
+                                                    local nearest_pos = nil
+                                                    for _, pt in ipairs(trinket_bot.path_points) do
+                                                        local d = (pt.position - hrp.Position).Magnitude
+                                                        if d < nearest_dist then nearest_dist = d; nearest_pos = pt.position end
+                                                    end
+                                                    if nearest_pos then
+                                                        SmoothTeleport(CFrame.new(nearest_pos))
+                                                    end
+                                                end
+                                                task.wait(1.5)
+                                            end
                                         end
 
                                         while plr.Character and CollectionService:HasTag(plr.Character, "SnapCool") and (tick() - snapcool_wait_start) < max_snapcool_wait do
@@ -14655,8 +14773,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                         local dist = (other_player.Character.HumanoidRootPart.Position - bot_pos).Magnitude
                                                         if dist <= critical_distance then
                                                             library:Notify(string.format("Player entered critical range (%.0f studs) during SnapCool wait - instant serverhop", dist))
-                                                            if snapcool_wait_platform then snapcool_wait_platform:Destroy() end
-                                                            emergency_gate_in_progress = false
+                                                        emergency_gate_in_progress = false
                                                             trinket_bot.path_running = false
                                                             TrinketBotServerhop(string.format("Player entered critical range during SnapCool wait while escaping %s", player_name))
                                                             return
@@ -14666,19 +14783,13 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                             end
 
                                             if not trinket_bot.path_running then
-                                                if snapcool_wait_platform then snapcool_wait_platform:Destroy() end
                                                 return
                                             end
                                         end
 
-                                        if snapcool_wait_platform then
-                                            snapcool_wait_platform:Destroy()
-                                            snapcool_wait_platform = nil
-                                        end
-
                                         if plr.Character and CollectionService:HasTag(plr.Character, "SnapCool") then
                                             library:Notify("SnapCool wait timeout (10s) - serverhopping")
-                                            emergency_gate_in_progress = false
+                                        emergency_gate_in_progress = false
                                             trinket_bot.path_running = false
                                             TrinketBotServerhop("SnapCool wait timeout during emergency gate")
                                             return
@@ -14689,34 +14800,43 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                 end
 
                                 local character = plr.Character
-                                local stabilization_platform = nil
 
                                 if character and FindFirstChild(character, "HumanoidRootPart") then
                                     local humanoid = FindFirstChildOfClass(character, "Humanoid")
                                     local is_in_air = humanoid and (humanoid:GetState() == Enum.HumanoidStateType.Freefall or humanoid:GetState() == Enum.HumanoidStateType.Flying)
 
                                     if is_in_air then
-                                        library:Notify("Bot in air [2]")
+                                        library:Notify("Bot in air [2] - grounding")
                                         local hrp = character.HumanoidRootPart
+                                        local grounded = false
+                                        local rayParams = RaycastParams.new()
+                                        rayParams.FilterDescendantsInstances = {character}
+                                        rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                                        local rayResult = workspace:Raycast(hrp.Position, Vector3.new(0, -500, 0), rayParams)
 
-                                        stabilization_platform = Instance.new("Part")
-                                        stabilization_platform.Size = Vector3.new(10, 1, 10)
-                                        stabilization_platform.Position = hrp.Position - Vector3.new(0, 5, 0)
-                                        stabilization_platform.Anchored = true
-                                        stabilization_platform.CanCollide = true
-                                        stabilization_platform.Transparency = 1
-                                        stabilization_platform.Parent = workspace
+                                        if rayResult then
+                                            local ground_pos = rayResult.Position + Vector3.new(0, 3, 0)
+                                            SmoothTeleport(CFrame.new(ground_pos))
+                                            grounded = true
+                                        end
 
-                                        task.wait(0.3)
+                                        if not grounded and trinket_bot.path_points and #trinket_bot.path_points > 0 then
+                                            local nearest_dist = math.huge
+                                            local nearest_pos = nil
+                                            for _, pt in ipairs(trinket_bot.path_points) do
+                                                local d = (pt.position - hrp.Position).Magnitude
+                                                if d < nearest_dist then nearest_dist = d; nearest_pos = pt.position end
+                                            end
+                                            if nearest_pos then
+                                                SmoothTeleport(CFrame.new(nearest_pos))
+                                            end
+                                        end
+                                        task.wait(1.5)
                                     end
                                 end
 
                                 local gate_success = Gate(next_gate_point.gate_location)
-
-                                if stabilization_platform then
-                                    stabilization_platform:Destroy()
-                                    stabilization_platform = nil
-                                end
+                                task.wait(1.5)
 
                                 if gate_success then
                                     if utility.better_log then
@@ -14726,11 +14846,46 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                     current_gate_section = current_gate_section + 1
                                     proximity_warnings = {}
 
-                                    task.wait(1.06)
+                                    -- Post-gate safety scan: hold position and check surroundings
+                                    if plr.Character then
+                                        local hum = FindFirstChildOfClass(plr.Character, "Humanoid")
+                                        if hum then
+                                            hum:SetStateEnabled(5, true)
+                                            hum:ChangeState(5)
+                                        end
+                                    end
+                                    task.wait(1.5)
 
+                                    local scan_clear = true
+                                    local scan_threat = ""
+                                    if plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
+                                        local post_gate_pos = plr.Character.HumanoidRootPart.Position
+                                        for _, other_player in next, plrs:GetPlayers() do
+                                            if other_player ~= plr and other_player.Character and FindFirstChild(other_player.Character, "HumanoidRootPart") then
+                                                local dist = (other_player.Character.HumanoidRootPart.Position - post_gate_pos).Magnitude
+                                                if dist <= 120 then
+                                                    scan_clear = false
+                                                    scan_threat = other_player.Name
+                                                    break
+                                                end
+                                            end
+                                        end
+                                    end
+
+                                    if scan_clear then
+                                        utility:better_log("Post-gate scan clear - resuming path")
+                                        library:Notify("Post-gate scan clear - resuming path")
                                     emergency_gate_in_progress = false
-                                    i = next_gate_index + 1
-                                    continue
+                                        i = next_gate_index + 1
+                                        continue
+                                    else
+                                        utility:better_log(string.format("Post-gate scan THREAT: %s nearby after emergency gate - serverhopping", scan_threat))
+                                        library:Notify(string.format("Post-gate scan: %s nearby - serverhopping", scan_threat))
+                                    emergency_gate_in_progress = false
+                                        trinket_bot.path_running = false
+                                        TrinketBotServerhop(string.format("Player %s detected near gate destination after emergency gate", scan_threat))
+                                        return
+                                    end
                                 else
                                     local stay_in_server = Toggles.StayInServer and Toggles.StayInServer.Value or false
 
@@ -14747,14 +14902,14 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
 
                                             if (tick() - wait_start) >= max_wait then
                                                 library:Notify("SnapCool/Danger wait timeout (30s) - serverhopping")
-                                                emergency_gate_in_progress = false
+                                            emergency_gate_in_progress = false
                                                 TrinketBotServerhop("SnapCool/Danger timeout during emergency gate")
                                                 return
                                             end
 
                                             library:Notify("SnapCool and Danger cleared - retrying emergency gate")
                                             if not trinket_bot.path_running then
-                                                emergency_gate_in_progress = false
+                                            emergency_gate_in_progress = false
                                                 return
                                             end
 
@@ -14765,34 +14920,49 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                 local hrp = character.HumanoidRootPart
                                                 local start_pos = hrp.Position
 
-                                                teleport_platform = Instance.new("Part")
-                                                teleport_platform.Size = Vector3.new(7, 1, 7)
-                                                teleport_platform.Position = start_pos + Vector3.new(0, -3, 18)
-                                                teleport_platform.Anchored = true
-                                                teleport_platform.CanCollide = true
-                                                teleport_platform.Transparency = 1
-                                                teleport_platform.Parent = workspace
+                                                local target_pos = start_pos + Vector3.new(0, 0, 18)
+                                                local grounded = false
+                                                local rayParams = RaycastParams.new()
+                                                rayParams.FilterDescendantsInstances = {character}
+                                                rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                                                local rayResult = workspace:Raycast(target_pos, Vector3.new(0, -500, 0), rayParams)
+                                                
+                                                if rayResult then
+                                                    target_pos = rayResult.Position + Vector3.new(0, 3, 0)
+                                                    grounded = true
+                                                else
+                                                    if trinket_bot.path_points and #trinket_bot.path_points > 0 then
+                                                        local nearest_dist = math.huge
+                                                        for _, pt in ipairs(trinket_bot.path_points) do
+                                                            local d = (pt.position - start_pos).Magnitude
+                                                            if d > 10 and d < nearest_dist then
+                                                                nearest_dist = d
+                                                                target_pos = pt.position
+                                                                grounded = true
+                                                            end
+                                                        end
+                                                    end
+                                                end
 
                                                 local saved_emergency_gate = emergency_gate_requested
                                                 emergency_gate_requested = nil
-
                                                 trinket_bot.path_running = true
-                                                SmoothTeleport(teleport_platform.Position + Vector3.new(0, 4, 0))
-                                                task.wait(1.5)
+
+                                                if grounded then
+                                                    SmoothTeleport(CFrame.new(target_pos))
+                                                    task.wait(1.5)
+                                                end
 
                                                 if not emergency_gate_requested then
                                                     emergency_gate_requested = saved_emergency_gate
                                                 end
 
-                                                if teleport_platform then
-                                                    teleport_platform:Destroy()
-                                                end
-
-                                                SmoothTeleport(start_pos)
+                                                SmoothTeleport(CFrame.new(start_pos))
                                                 task.wait(0.5)
                                             end
 
                                             gate_success = Gate(next_gate_point.gate_location)
+                                            	task.wait(1.5)
 
                                             if gate_success then
                                                 if utility.better_log then
@@ -14802,14 +14972,49 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                 current_gate_section = current_gate_section + 1
                                                 proximity_warnings = {}
 
-                                                task.wait(3)
+                                                -- Post-gate safety scan: hold position and check surroundings
+                                                if plr.Character then
+                                                    local hum = FindFirstChildOfClass(plr.Character, "Humanoid")
+                                                    if hum then
+                                                        hum:SetStateEnabled(5, true)
+                                                        hum:ChangeState(5)
+                                                    end
+                                                end
+                                                task.wait(1.5)
 
+                                                local scan_clear = true
+                                                local scan_threat = ""
+                                                if plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
+                                                    local post_gate_pos = plr.Character.HumanoidRootPart.Position
+                                                    for _, other_player in next, plrs:GetPlayers() do
+                                                        if other_player ~= plr and other_player.Character and FindFirstChild(other_player.Character, "HumanoidRootPart") then
+                                                            local dist = (other_player.Character.HumanoidRootPart.Position - post_gate_pos).Magnitude
+                                                            if dist <= 120 then
+                                                                scan_clear = false
+                                                                scan_threat = other_player.Name
+                                                                break
+                                                            end
+                                                        end
+                                                    end
+                                                end
+
+                                                if scan_clear then
+                                                    utility:better_log("Post-gate scan clear - resuming path (stay in server retry)")
+                                                    library:Notify("Post-gate scan clear - resuming path")
                                                 emergency_gate_in_progress = false
-                                                i = next_gate_index + 1
-                                                continue
+                                                    i = next_gate_index + 1
+                                                    continue
+                                                else
+                                                    utility:better_log(string.format("Post-gate scan THREAT: %s nearby after gate (stay in server retry) - serverhopping", scan_threat))
+                                                    library:Notify(string.format("Post-gate scan: %s nearby - serverhopping", scan_threat))
+                                                emergency_gate_in_progress = false
+                                                    trinket_bot.path_running = false
+                                                    TrinketBotServerhop(string.format("Player %s detected near gate destination after emergency gate", scan_threat))
+                                                    return
+                                                end
                                             else
                                                 library:Notify("Emergency gate retry failed but staying in server - continuing with path")
-                                                emergency_gate_in_progress = false
+                                            emergency_gate_in_progress = false
                                             end
                                         else
                                             library:Notify("Waiting for SnapCool to clear before retrying emergency gate...")
@@ -14835,45 +15040,54 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                             if snapcool_cleared then
                                                 library:Notify("SnapCool cleared - retrying emergency gate")
                                                 if not trinket_bot.path_running then
-                                                    emergency_gate_in_progress = false
+                                                emergency_gate_in_progress = false
                                                     return
                                                 end
 
                                                 local character = plr.Character
-                                                local teleport_platform = nil
-
                                                 if character and FindFirstChild(character, "HumanoidRootPart") and FindFirstChildOfClass(character, "ForceField") then
                                                     local hrp = character.HumanoidRootPart
                                                     local start_pos = hrp.Position
-
-                                                    teleport_platform = Instance.new("Part")
-                                                    teleport_platform.Size = Vector3.new(7, 1, 7)
-                                                    teleport_platform.Position = start_pos + Vector3.new(0, -3, 18)
-                                                    teleport_platform.Anchored = true
-                                                    teleport_platform.CanCollide = true
-                                                    teleport_platform.Transparency = 1
-                                                    teleport_platform.Parent = workspace
+                                                    local target_pos = start_pos + Vector3.new(0, 0, 18)
+                                                    local grounded = false
+                                                    local rayParams = RaycastParams.new()
+                                                    rayParams.FilterDescendantsInstances = {character}
+                                                    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                                                    local rayResult = workspace:Raycast(target_pos, Vector3.new(0, -500, 0), rayParams)
+                                                    
+                                                    if rayResult then
+                                                        target_pos = rayResult.Position + Vector3.new(0, 3, 0)
+                                                        grounded = true
+                                                    else
+                                                        if trinket_bot.path_points and #trinket_bot.path_points > 0 then
+                                                            local nearest_dist = math.huge
+                                                            for _, pt in ipairs(trinket_bot.path_points) do
+                                                                local d = (pt.position - start_pos).Magnitude
+                                                                if d > 10 and d < nearest_dist then
+                                                                    nearest_dist = d
+                                                                    target_pos = pt.position
+                                                                    grounded = true
+                                                                end
+                                                            end
+                                                        end
+                                                    end
 
                                                     local saved_emergency_gate = emergency_gate_requested
                                                     emergency_gate_requested = nil
-
                                                     trinket_bot.path_running = true
-                                                    SmoothTeleport(teleport_platform.Position + Vector3.new(0, 4, 0))
-                                                    task.wait(1.5)
+
+                                                    if grounded then
+                                                        SmoothTeleport(CFrame.new(target_pos))
+                                                        task.wait(1.5)
+                                                    end
 
                                                     if not emergency_gate_requested then
                                                         emergency_gate_requested = saved_emergency_gate
                                                     end
-
-                                                    if teleport_platform then
-                                                        teleport_platform:Destroy()
-                                                    end
-
-                                                    SmoothTeleport(start_pos)
-                                                    task.wait(0.5)
                                                 end
 
                                                 gate_success = Gate(next_gate_point.gate_location)
+                                                	task.wait(1.5)
 
                                                 if gate_success then
                                                     if utility.better_log then
@@ -14883,14 +15097,50 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                     current_gate_section = current_gate_section + 1
                                                     proximity_warnings = {}
 
-                                                    task.wait(3)
+                                                    -- Post-gate safety scan: hold position and check surroundings
+                                                    if plr.Character then
+                                                        local hum = FindFirstChildOfClass(plr.Character, "Humanoid")
+                                                        if hum then
+                                                            hum:SetStateEnabled(5, true)
+                                                            hum:ChangeState(5)
+                                                        end
+                                                    end
+                                                    task.wait(1.5)
 
+                                                    local scan_clear = true
+                                                    local scan_threat = ""
+                                                    if plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
+                                                        local post_gate_pos = plr.Character.HumanoidRootPart.Position
+                                                        for _, other_player in next, plrs:GetPlayers() do
+                                                            if other_player ~= plr and other_player.Character and FindFirstChild(other_player.Character, "HumanoidRootPart") then
+                                                                local dist = (other_player.Character.HumanoidRootPart.Position - post_gate_pos).Magnitude
+                                                                if dist <= 120 then
+                                                                    scan_clear = false
+                                                                    scan_threat = other_player.Name
+                                                                    break
+                                                                end
+                                                            end
+                                                        end
+                                                    end
+
+                                                    if scan_clear then
+                                                        utility:better_log("Post-gate scan clear - resuming path (after SnapCool wait)")
+                                                        library:Notify("Post-gate scan clear - resuming path")
                                                     emergency_gate_in_progress = false
-                                                    i = next_gate_index + 1
-                                                    continue
+                                                        i = next_gate_index + 1
+                                                        continue
+                                                    else
+                                                        utility:better_log(string.format("Post-gate scan THREAT: %s nearby after gate (after SnapCool wait) - serverhopping", scan_threat))
+                                                        library:Notify(string.format("Post-gate scan: %s nearby - serverhopping", scan_threat))
+                                                    emergency_gate_in_progress = false
+                                                        trinket_bot.path_running = false
+                                                        TrinketBotServerhop(string.format("Player %s detected near gate destination after emergency gate", scan_threat))
+                                                        return
+                                                    end
                                                 else
+                                                    utility:better_log(string.format("Emergency gate retry failed - serverhopping to escape %s", player_name))
                                                     library:Notify(string.format("Emergency gate retry failed - serverhopping to escape %s", player_name))
-                                                    emergency_gate_in_progress = false
+                                                emergency_gate_in_progress = false
                                                     trinket_bot.path_running = false
                                                     TrinketBotServerhop(string.format("Emergency gate retry failed while escaping %s", player_name))
                                                     return
@@ -14898,19 +15148,20 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                             else
                                                 if not trinket_bot.path_running then
                                                     library:Notify("Bot was manually stopped during emergency gate wait - aborting serverhop")
-                                                    emergency_gate_in_progress = false
+                                                emergency_gate_in_progress = false
                                                     return
                                                 end
 
                                                 local should_serverhop = emergency_path_traverse(plr.Character.HumanoidRootPart.Position, player_name)
 
                                                 if should_serverhop then
+                                                    utility:better_log(string.format("SnapCool timeout or Danger detected - serverhopping to escape %s", player_name))
                                                     library:Notify(string.format("SnapCool timeout or Danger detected - serverhopping to escape %s", player_name))
-                                                    emergency_gate_in_progress = false
+                                                emergency_gate_in_progress = false
                                                     trinket_bot.path_running = false
                                                     TrinketBotServerhop(string.format("Emergency gate failed (SnapCool timeout) while escaping %s", player_name))
                                                 else
-                                                    emergency_gate_in_progress = false
+                                                emergency_gate_in_progress = false
                                                 end
                                                 return
                                             end
@@ -14918,23 +15169,24 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                     else
                                         if stay_in_server then
                                             library:Notify("Emergency gate failed but staying in server - continuing with path")
-                                            emergency_gate_in_progress = false
+                                        emergency_gate_in_progress = false
                                         else
                                             if not trinket_bot.path_running then
                                                 library:Notify("Bot was manually stopped - aborting serverhop")
-                                                emergency_gate_in_progress = false
+                                            emergency_gate_in_progress = false
                                                 return
                                             end
 
                                             local should_serverhop = emergency_path_traverse(plr.Character.HumanoidRootPart.Position, player_name)
 
                                             if should_serverhop then
+                                                utility:better_log(string.format("Emergency gate failed - serverhopping to escape %s", player_name))
                                                 library:Notify(string.format("Emergency gate failed - serverhopping to escape %s", player_name))
-                                                emergency_gate_in_progress = false
+                                            emergency_gate_in_progress = false
                                                 trinket_bot.path_running = false
                                                 TrinketBotServerhop(string.format("Emergency gate failed while escaping %s", player_name))
                                             else
-                                                emergency_gate_in_progress = false
+                                            emergency_gate_in_progress = false
                                             end
                                             return
                                         end
@@ -14988,19 +15240,21 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                             end
                                         end
 
-                                        emergency_gate_in_progress = false
+                                    emergency_gate_in_progress = false
                                         trinket_bot.path_running = false
                                         TrinketBotServerhop(string.format("Escaped %s via path traversal (no gates)", player_name))
                                         return
                                     else
+                                        utility:better_log(string.format("No clear gate point available - serverhopping to escape %s", player_name))
                                         library:Notify(string.format("No clear gate point available - serverhopping to escape %s", player_name))
-                                        emergency_gate_in_progress = false
+                                    emergency_gate_in_progress = false
                                         trinket_bot.path_running = false
                                         TrinketBotServerhop(string.format("No clear gate point while escaping %s", player_name))
                                         return
                                     end
                                 else
                                     library:Notify("No clear gate point but staying in server - continuing with path")
+                                    if emergency_stabilization_platform then pcall(function() emergency_stabilization_platform:Destroy() end) emergency_stabilization_platform = nil end
                                     emergency_gate_in_progress = false
                                 end
                             end
@@ -15202,8 +15456,6 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                     local max_retries = 3
                                     local retry_count = 0
 
-                                    local retry_platform = nil
-
                                     while not gate_success and retry_count < max_retries and trinket_bot.path_running and not emergency_gate_requested and not trinket_bot.moderator_detected do
                                         retry_count = retry_count + 1
 
@@ -15267,20 +15519,39 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                 if character and FindFirstChild(character, "HumanoidRootPart") then
                                                     local hrp = character.HumanoidRootPart
 
-                                                    retry_platform = Instance.new("Part")
-                                                    retry_platform.Size = Vector3.new(7, 1, 7)
-                                                    retry_platform.Position = hrp.Position + Vector3.new(0, -3, 18)
-                                                    retry_platform.Anchored = true
-                                                    retry_platform.CanCollide = true
-                                                    retry_platform.Transparency = 1
-                                                    retry_platform.Parent = workspace
+                                                    local start_pos = hrp.Position
+                                                    local target_pos = start_pos + Vector3.new(0, 0, 18)
+                                                    local grounded = false
+                                                    local rayParams = RaycastParams.new()
+                                                    rayParams.FilterDescendantsInstances = {character}
+                                                    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                                                    local rayResult = workspace:Raycast(target_pos, Vector3.new(0, -500, 0), rayParams)
+                                                    
+                                                    if rayResult then
+                                                        target_pos = rayResult.Position + Vector3.new(0, 3, 0)
+                                                        grounded = true
+                                                    else
+                                                        if trinket_bot.path_points and #trinket_bot.path_points > 0 then
+                                                            local nearest_dist = math.huge
+                                                            for _, pt in ipairs(trinket_bot.path_points) do
+                                                                local d = (pt.position - start_pos).Magnitude
+                                                                if d > 10 and d < nearest_dist then
+                                                                    nearest_dist = d
+                                                                    target_pos = pt.position
+                                                                    grounded = true
+                                                                end
+                                                            end
+                                                        end
+                                                    end
 
                                                     local saved_emergency_gate = emergency_gate_requested
                                                     emergency_gate_requested = nil
-
                                                     trinket_bot.path_running = true
-                                                    SmoothTeleport(retry_platform.Position + Vector3.new(0, 4, 0))
-                                                    task.wait(1.5)
+
+                                                    if grounded then
+                                                        SmoothTeleport(CFrame.new(target_pos))
+                                                        task.wait(1.5)
+                                                    end
 
                                                     if not emergency_gate_requested then
                                                         emergency_gate_requested = saved_emergency_gate
@@ -15291,11 +15562,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
 
                                         local expected_dest = trinket_bot.path_points[gate_index + 1] and trinket_bot.path_points[gate_index + 1].position or nil
                                         gate_success = Gate(gate_point.gate_location, expected_dest)
-                                    end
-
-                                    if retry_platform then
-                                        retry_platform:Destroy()
-                                        retry_platform = nil
+                                        	task.wait(1.5)
                                     end
 
                                     if gate_success then
@@ -15412,6 +15679,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
 
                                 local expected_dest = trinket_bot.path_points[i + 1] and trinket_bot.path_points[i + 1].position or nil
                                 gate_success = Gate(point.gate_location, expected_dest)
+                                	task.wait(1.5)
                             end
 
                             if not gate_success then
@@ -15472,7 +15740,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                     retry_count = retry_count + 1
 
                                     if not trinket_bot.path_running then
-                                        emergency_gate_in_progress = false
+                                    emergency_gate_in_progress = false
                                         break
                                     end
 
@@ -15518,7 +15786,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                 if danger_conn then danger_conn:Disconnect() end
 
                                                 if not trinket_bot.path_running then
-                                                    emergency_gate_in_progress = false
+                                                emergency_gate_in_progress = false
                                                     break
                                                 end
                                                 library:Notify("SnapCool/Danger cleared - retrying emergency gate")
@@ -15530,6 +15798,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                     end
 
                                     gate_success = Gate(next_gate_point.gate_location)
+                                    	task.wait(1.5)
                                 end
 
                                 if gate_success then
@@ -15537,27 +15806,63 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                     current_gate_section = current_gate_section + 1
                                     proximity_warnings = {}
 
-                                    task.wait(3)
+                                    -- Post-gate safety scan: hold position and check surroundings
+                                    if plr.Character then
+                                        local hum = FindFirstChildOfClass(plr.Character, "Humanoid")
+                                        if hum then
+                                            hum:SetStateEnabled(5, true)
+                                            hum:ChangeState(5)
+                                        end
+                                    end
+                                    task.wait(1.5)
 
+                                    local scan_clear = true
+                                    local scan_threat = ""
+                                    if plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
+                                        local post_gate_pos = plr.Character.HumanoidRootPart.Position
+                                        for _, other_player in next, plrs:GetPlayers() do
+                                            if other_player ~= plr and other_player.Character and FindFirstChild(other_player.Character, "HumanoidRootPart") then
+                                                local dist = (other_player.Character.HumanoidRootPart.Position - post_gate_pos).Magnitude
+                                                if dist <= 120 then
+                                                    scan_clear = false
+                                                    scan_threat = other_player.Name
+                                                    break
+                                                end
+                                            end
+                                        end
+                                    end
+
+                                    if scan_clear then
+                                        utility:better_log(string.format("Successfully escaped via gate at point %d - post-gate scan clear, resuming path", next_gate_index))
+                                        library:Notify("Post-gate scan clear - resuming path")
                                     emergency_gate_in_progress = false
-                                    i = next_gate_index + 1
-                                    continue
+                                        i = next_gate_index + 1
+                                        continue
+                                    else
+                                        utility:better_log(string.format("Post-gate scan THREAT: %s nearby after escaping to point %d - serverhopping", scan_threat, next_gate_index))
+                                        library:Notify(string.format("Post-gate scan: %s nearby - serverhopping", scan_threat))
+                                    emergency_gate_in_progress = false
+                                        trinket_bot.path_running = false
+                                        TrinketBotServerhop(string.format("Player %s detected near gate destination after emergency gate", scan_threat))
+                                        return
+                                    end
                                 else
                                     if not trinket_bot.path_running then
                                         library:Notify("Bot was manually stopped - aborting serverhop")
-                                        emergency_gate_in_progress = false
+                                    emergency_gate_in_progress = false
                                         return
                                     end
 
                                     local should_serverhop = emergency_path_traverse(plr.Character.HumanoidRootPart.Position, player_name)
 
                                     if should_serverhop then
+                                        utility:better_log(string.format("Emergency gate failed after retries - serverhopping to escape %s", player_name))
                                         library:Notify(string.format("Emergency gate failed after retries - serverhopping to escape %s", player_name))
-                                        emergency_gate_in_progress = false
+                                    emergency_gate_in_progress = false
                                         trinket_bot.path_running = false
                                         TrinketBotServerhop(string.format("Emergency gate failed while escaping %s", player_name))
                                     else
-                                        emergency_gate_in_progress = false
+                                    emergency_gate_in_progress = false
                                     end
                                     return
                                 end
@@ -15607,12 +15912,15 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                         end
                                     end
 
+                                    if emergency_stabilization_platform then pcall(function() emergency_stabilization_platform:Destroy() end) emergency_stabilization_platform = nil end
                                     emergency_gate_in_progress = false
                                     trinket_bot.path_running = false
                                     TrinketBotServerhop(string.format("Escaped %s via path traversal (no gates)", player_name))
                                     return
                                 else
+                                    utility:better_log(string.format("No clear gate point available - serverhopping to escape %s", player_name))
                                     library:Notify(string.format("No clear gate point available - serverhopping to escape %s", player_name))
+                                    if emergency_stabilization_platform then pcall(function() emergency_stabilization_platform:Destroy() end) emergency_stabilization_platform = nil end
                                     emergency_gate_in_progress = false
                                     trinket_bot.path_running = false
                                     TrinketBotServerhop(string.format("No gate available to escape %s", player_name))
@@ -15657,6 +15965,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                             utility:plain_webhook(string.format("Shrieker detected near point %d - gating to point %d to escape", i, next_gate_index))
                                         end
                                         local gate_success = Gate(next_gate_point.gate_location)
+                                        	task.wait(1.5)
                                         if gate_success then
                                             i = next_gate_index + 1
                                             continue
@@ -16395,6 +16704,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     library:Notify(string.format("Attempting to gate to %s...", gate_location))
                     task.spawn(function()
                         local success = Gate(gate_location)
+                        	task.wait(1.5)
                         if success then
                             library:Notify(string.format("Successfully gated to %s!", gate_location))
                         else
@@ -16972,32 +17282,42 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
 
                                             local character = plr.Character
                                             local forcefield_removed = false
-                                            local teleport_platform = nil
-
                                             if character and FindFirstChild(character, "HumanoidRootPart") then
                                                 local hrp = character.HumanoidRootPart
                                                 local start_pos = hrp.Position
-
-                                                teleport_platform = Instance.new("Part")
-                                                teleport_platform.Size = Vector3.new(7, 1, 7)
-                                                teleport_platform.Position = start_pos + Vector3.new(0, -3, 18)
-                                                teleport_platform.Anchored = true
-                                                teleport_platform.CanCollide = true
-                                                teleport_platform.Transparency = 1
-                                                teleport_platform.Parent = workspace
+                                                local target_pos = start_pos + Vector3.new(0, 0, 18)
+                                                local grounded = false
+                                                local rayParams = RaycastParams.new()
+                                                rayParams.FilterDescendantsInstances = {character}
+                                                rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                                                local rayResult = workspace:Raycast(target_pos, Vector3.new(0, -500, 0), rayParams)
+                                                
+                                                if rayResult then
+                                                    target_pos = rayResult.Position + Vector3.new(0, 3, 0)
+                                                    grounded = true
+                                                else
+                                                    if trinket_bot.path_points and #trinket_bot.path_points > 0 then
+                                                        local nearest_dist = math.huge
+                                                        for _, pt in ipairs(trinket_bot.path_points) do
+                                                            local d = (pt.position - start_pos).Magnitude
+                                                            if d > 10 and d < nearest_dist then
+                                                                nearest_dist = d
+                                                                target_pos = pt.position
+                                                                grounded = true
+                                                            end
+                                                        end
+                                                    end
+                                                end
 
                                                 trinket_bot.path_running = true
-                                                SmoothTeleport(teleport_platform.Position + Vector3.new(0, 4, 0))
-                                                task.wait(1.5)
+                                                if grounded then
+                                                    SmoothTeleport(CFrame.new(target_pos))
+                                                    task.wait(1.5)
+                                                end
 
                                                 if character and not FindFirstChildOfClass(character, "ForceField") then
                                                     forcefield_removed = true
                                                     library:Notify("ForceField removed via SmoothTeleport")
-                                                end
-
-                                                if teleport_platform then
-                                                    teleport_platform:Destroy()
-                                                    teleport_platform = nil
                                                 end
                                             end
 
@@ -17005,6 +17325,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                 library:Notify("ForceField removed - gating to last gate point")
 
                                                 local gate_success = Gate(last_gate_point.gate_location)
+                                                	task.wait(1.5)
 
                                                 if gate_success then
                                                     library:Notify(string.format("Successfully gated to last gate point %d - routing back to point 1", last_gate_index))
@@ -26558,7 +26879,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
     end
     end
     end, function(err)
-        return debug.traceback(err, 2)
+        return debug.traceback(tostring(err), 2)
     end)
 
     if not success then
