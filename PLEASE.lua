@@ -13953,8 +13953,8 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         task.wait(1.5)
 
                         if plr.Character and not cs:HasTag(plr.Character, "Danger") then
-                            library:Notify("Danger cleared during emergency escape - serverhopping")
-                            return true
+                            library:Notify("Danger cleared during emergency escape - resuming path")
+                            return false
                         end
                     end
 
@@ -13968,8 +13968,8 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         return false
                     end
 
-                    library:Notify("Danger cleared after emergency escape - serverhopping")
-                    return true
+                    library:Notify("Danger cleared after emergency escape - resuming path")
+                    return false
                 end
 
                 local gnav_detected = false
@@ -15161,10 +15161,24 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                 emergency_gate_in_progress = false
                                                     trinket_bot.path_running = false
                                                     TrinketBotServerhop(string.format("Emergency gate failed (SnapCool timeout) while escaping %s", player_name))
+                                                    return
                                                 else
-                                                emergency_gate_in_progress = false
+                                                    emergency_gate_in_progress = false
+                                                    local nearest_idx = i
+                                                    local nearest_dist = math.huge
+                                                    if plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
+                                                        local current_pos = plr.Character.HumanoidRootPart.Position
+                                                        for idx, pt in ipairs(trinket_bot.path_points) do
+                                                            local dist = (pt.position - current_pos).Magnitude
+                                                            if dist < nearest_dist then
+                                                                nearest_dist = dist
+                                                                nearest_idx = idx
+                                                            end
+                                                        end
+                                                    end
+                                                    i = nearest_idx
+                                                    continue
                                                 end
-                                                return
                                             end
                                         end
                                     else
@@ -15186,10 +15200,24 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                             emergency_gate_in_progress = false
                                                 trinket_bot.path_running = false
                                                 TrinketBotServerhop(string.format("Emergency gate failed while escaping %s", player_name))
+                                                return
                                             else
-                                            emergency_gate_in_progress = false
+                                                emergency_gate_in_progress = false
+                                                local nearest_idx = i
+                                                local nearest_dist = math.huge
+                                                if plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
+                                                    local current_pos = plr.Character.HumanoidRootPart.Position
+                                                    for idx, pt in ipairs(trinket_bot.path_points) do
+                                                        local dist = (pt.position - current_pos).Magnitude
+                                                        if dist < nearest_dist then
+                                                            nearest_dist = dist
+                                                            nearest_idx = idx
+                                                        end
+                                                    end
+                                                end
+                                                i = nearest_idx
+                                                continue
                                             end
-                                            return
                                         end
                                     end
                                 end
@@ -15862,10 +15890,24 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                     emergency_gate_in_progress = false
                                         trinket_bot.path_running = false
                                         TrinketBotServerhop(string.format("Emergency gate failed while escaping %s", player_name))
+                                        return
                                     else
-                                    emergency_gate_in_progress = false
+                                        emergency_gate_in_progress = false
+                                        local nearest_idx = i
+                                        local nearest_dist = math.huge
+                                        if plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
+                                            local current_pos = plr.Character.HumanoidRootPart.Position
+                                            for idx, pt in ipairs(trinket_bot.path_points) do
+                                                local dist = (pt.position - current_pos).Magnitude
+                                                if dist < nearest_dist then
+                                                    nearest_dist = dist
+                                                    nearest_idx = idx
+                                                end
+                                            end
+                                        end
+                                        i = nearest_idx
+                                        continue
                                     end
-                                    return
                                 end
                             else
                                 if not path_has_gates and plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
