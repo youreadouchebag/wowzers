@@ -248,6 +248,18 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
     local plr = plrs.LocalPlayer
     local mouse = cloneref(plr:GetMouse())
 
+ 
+    local last_y_position = 0
+    task.spawn(function()
+        while task.wait(0.1) do
+            pcall(function()
+                if plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
+                    last_y_position = plr.Character.HumanoidRootPart.Position.Y
+                end
+            end)
+        end
+    end)
+
     local FindFirstChild = game.FindFirstChild
     local WaitForChild = game.WaitForChild
     local FindFirstChildWhichIsA = game.FindFirstChildWhichIsA
@@ -3664,14 +3676,14 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 end
             end
 
-            -- Fetch server age directly from the same RemoteFunction the game's LocalScript uses
+           
             pcall(function()
                 local get_stats_remote = rps:FindFirstChild("Requests") and rps.Requests:FindFirstChild("GetServerStats")
                 if get_stats_remote then
                     local stats = get_stats_remote:InvokeServer()
                     if stats and stats.Age then
                         server_age_seconds = math.ceil(stats.Age)
-                        -- Also fill name/region from the invoke if GUI wasn't populated yet
+                       
                         if server_name == "" and stats.ServerName then
                             server_name = tostring(stats.ServerName)
                         end
@@ -3726,7 +3738,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 
                 local function format_age(seconds)
                     if not seconds then
-                        -- Fallback to DistributedGameTime if invoke failed
+                    
                         seconds = math.floor(workspace.DistributedGameTime)
                     end
                     local days    = math.floor(seconds / 86400)
@@ -12395,8 +12407,43 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 return summary
             end
 
-            local function get_downward_vector(pos)
-                return Vector3.new(0, -1000, 0)
+            local function get_lowest_map_y()
+                local lowestY = -1000 -- Safe default fallback
+                pcall(function()
+                    local lowest = math.huge
+                    local live = ws:FindFirstChild("Live")
+                    for _, desc in ipairs(ws:GetDescendants()) do
+                        if desc:IsA("BasePart") then
+                    
+                            if live and desc:IsDescendantOf(live) then
+                                continue
+                            end
+                            if plr.Character and desc:IsDescendantOf(plr.Character) then
+                                continue
+                            end
+                            
+                            local y = desc.Position.Y
+                            if y < lowest and y > -5000 then -- ignore out-of-bounds voids
+                                lowest = y
+                            end
+                        end
+                    end
+                    if lowest ~= math.huge then
+                        lowestY = lowest
+                    end
+                end)
+                return lowestY
+            end
+            local lowest_map_y = get_lowest_map_y()
+
+ 
+            local function get_downward_vector(start_pos)
+                local currentY = start_pos.Y
+                local destroyHeight = workspace.FallenPartsDestroyHeight or -2000
+                
+        
+                local rayDistance = math.max(500, (currentY - destroyHeight) + 50)
+                return Vector3.new(0, -rayDistance, 0)
             end
 
             local function SmoothTeleport(target, is_trinket_teleport)
@@ -12561,8 +12608,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
 
                 return LocationName
             end
-
-            local function Gate(where, expected_destination, skip_path_check)
+            local function raw_gate(where, expected_destination, skip_path_check)
                 if not skip_path_check and not trinket_bot.path_running then
                     return false
                 end
@@ -12836,6 +12882,21 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 end
 
                 return false
+            end
+
+            local function Gate(where, expected_destination, skip_path_check)
+                local success = raw_gate(where, expected_destination, skip_path_check)
+                if not success and not skip_path_check and trinket_bot.path_running then
+                    library:Notify("Gate failed or took too long - serverhopping")
+                    if utility then
+                        utility:plain_webhook("Gate failed or took too long - serverhopping")
+                    end
+                    trinket_bot.path_running = false
+                    task.spawn(function()
+                        TrinketBotServerhop("Gate failed or took too long")
+                    end)
+                end
+                return success
             end
 
             local function CheckForTrinkets()
@@ -13321,6 +13382,30 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 end
             end
 
+            local function ground_or_serverhop(hrp, humanoid)
+                local grounded = false
+                local rayParams = RaycastParams.new()
+                rayParams.FilterDescendantsInstances = {plr.Character}
+                rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                local rayResult = workspace:Raycast(hrp.Position, get_downward_vector(hrp.Position), rayParams)
+                if rayResult then
+                    local ground_pos = rayResult.Position + Vector3.new(0, 3, 0)
+                    SmoothTeleport(CFrame.new(ground_pos))
+                    grounded = true
+                    library:Notify(string.format("Grounded via raycast (%.0f studs below)", (hrp.Position - ground_pos).Magnitude + 3))
+                else
+                    library:Notify("Raycast down failed - serverhopping immediately")
+                    if utility then
+                        utility:plain_webhook(string.format("Failed to raycast down (grounding check failed) - serverhopping from place %s", tostring(game.PlaceId)))
+                    end
+                    trinket_bot.path_running = false
+                    task.spawn(function()
+                        TrinketBotServerhop("Failed to raycast down during grounding check")
+                    end)
+                end
+                return grounded
+            end
+
             local function SafeServerhop(reason, skip_test_mode_check, skip_gate_escape)
                 trinket_bot.path_running = false
                 if plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
@@ -13653,7 +13738,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
 
                 if not test_mode then
                     mem:SetItem("botstarted", "true")
-                    -- Send join log synchronously first so it always arrives before any gate/activity webhook
+                  
                     pcall(function() utility:send_server_join_log() end)
                     task.spawn(function()
                         mem:SetItem("serverhop_count", "0")
@@ -13685,18 +13770,22 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                             trinket_bot.path_running = false
                             pcall(function() library:Notify("Path stopped due to death") end)
 
-                            local stay_in_server = Toggles.StayInServer and Toggles.StayInServer.Value or false
-                            if test_mode then
-                                pcall(function() library:Notify("You died (test mode - not kicking)") end)
-                            elseif stay_in_server then
-                                pcall(function() library:Notify("You died (stay in server - not kicking)") end)
-                                pcall(function() utility:plain_webhook("@here bot died (stay in server mode)") end)
+                            if last_y_position and last_y_position < -300 then
+                                TrinketBotServerhop("bot died to void - serverhopping", true)
                             else
-                                task.spawn(function()
-                                    pcall(function() utility:plain_webhook("@everyone bot died - kicking") end)
-                                    task.wait(0.3)
-                                    plr:Kick("bot died")
-                                end)
+                                local stay_in_server = Toggles.StayInServer and Toggles.StayInServer.Value or false
+                                if test_mode then
+                                    pcall(function() library:Notify("You died (test mode - not kicking)") end)
+                                elseif stay_in_server then
+                                    pcall(function() library:Notify("You died (stay in server - not kicking)") end)
+                                    pcall(function() utility:plain_webhook("@here bot died (stay in server mode)") end)
+                                else
+                                    task.spawn(function()
+                                        pcall(function() utility:plain_webhook("@everyone bot died - kicking") end)
+                                        task.wait(0.3)
+                                        plr:Kick("bot died")
+                                    end)
+                                end
                             end
                         end))
                     else
@@ -14464,33 +14553,12 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                     local is_in_air = humanoid and (humanoid:GetState() == Enum.HumanoidStateType.Freefall or humanoid:GetState() == Enum.HumanoidStateType.Flying)
 
                                     if is_in_air then
-                                        library:Notify("Bot in air [1] - grounding")
-                                        local hrp = plr.Character.HumanoidRootPart
-                                        local grounded = false
-                                        local rayParams = RaycastParams.new()
-                                        rayParams.FilterDescendantsInstances = {plr.Character}
-                                        rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                        local rayResult = workspace:Raycast(hrp.Position, get_downward_vector(hrp.Position), rayParams)
-
-                                        if rayResult then
-                                            local ground_pos = rayResult.Position + Vector3.new(0, 3, 0)
-                                            SmoothTeleport(CFrame.new(ground_pos))
-                                            grounded = true
-                                        end
-
-                                        if not grounded and trinket_bot.path_points and #trinket_bot.path_points > 0 then
-                                            local nearest_dist = math.huge
-                                            local nearest_pos = nil
-                                            for _, pt in ipairs(trinket_bot.path_points) do
-                                                local d = (pt.position - hrp.Position).Magnitude
-                                                if d < nearest_dist then nearest_dist = d; nearest_pos = pt.position end
-                                            end
-                                            if nearest_pos then
-                                                SmoothTeleport(CFrame.new(nearest_pos))
-                                            end
-                                        end
-                                        task.wait(1.5)
-                                    end
+                                         library:Notify("Bot in air [1] - grounding")
+                                         local hrp = plr.Character.HumanoidRootPart
+                                         local grounded = ground_or_serverhop(hrp, humanoid)
+                                         if not grounded then return end
+                                         task.wait(1.5)
+                                     end
                                 end
 
                                 local gate_success = Gate(trinket_bot.path_points[last_gate_index].gate_location)
@@ -14534,29 +14602,8 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
 
                                 if is_in_air then
                                     local hrp = plr.Character.HumanoidRootPart
-                                    local grounded = false
-                                    local rayParams = RaycastParams.new()
-                                    rayParams.FilterDescendantsInstances = {plr.Character}
-                                    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                    local rayResult = workspace:Raycast(hrp.Position, get_downward_vector(hrp.Position), rayParams)
-
-                                    if rayResult then
-                                        local ground_pos = rayResult.Position + Vector3.new(0, 3, 0)
-                                        SmoothTeleport(CFrame.new(ground_pos))
-                                        grounded = true
-                                    end
-
-                                    if not grounded and trinket_bot.path_points and #trinket_bot.path_points > 0 then
-                                        local nearest_dist = math.huge
-                                        local nearest_pos = nil
-                                        for _, pt in ipairs(trinket_bot.path_points) do
-                                            local d = (pt.position - hrp.Position).Magnitude
-                                            if d < nearest_dist then nearest_dist = d; nearest_pos = pt.position end
-                                        end
-                                        if nearest_pos then
-                                            SmoothTeleport(CFrame.new(nearest_pos))
-                                        end
-                                    end
+                                    local grounded = ground_or_serverhop(hrp, humanoid)
+                                    if not grounded then return end
                                     task.wait(1.5)
                                 end
                             end
@@ -14637,38 +14684,8 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                 if is_in_air then
                                     library:Notify("Bot in air during emergency gate - grounding")
                                     utility:better_log("Bot in air during emergency gate - attempting to ground via raycast")
-
-                               
-                                    local grounded = false
-                                    local rayParams = RaycastParams.new()
-                                    rayParams.FilterDescendantsInstances = {plr.Character}
-                                    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                    local rayResult = ws:Raycast(hrp.Position, get_downward_vector(hrp.Position), rayParams)
-
-                                    if rayResult then
-                                        local ground_pos = rayResult.Position + Vector3.new(0, 3, 0)
-                                        SmoothTeleport(CFrame.new(ground_pos))
-                                        grounded = true
-                                        library:Notify(string.format("Grounded via raycast (%.0f studs below)", (hrp.Position - ground_pos).Magnitude + 3))
-                                    end
-
-                                  
-                                    if not grounded and trinket_bot.path_points and #trinket_bot.path_points > 0 then
-                                        local nearest_dist = math.huge
-                                        local nearest_pos = nil
-                                        for _, pt in ipairs(trinket_bot.path_points) do
-                                            local d = (pt.position - hrp.Position).Magnitude
-                                            if d < nearest_dist then
-                                                nearest_dist = d
-                                                nearest_pos = pt.position
-                                            end
-                                        end
-                                        if nearest_pos then
-                                            SmoothTeleport(CFrame.new(nearest_pos))
-                                            library:Notify(string.format("Grounded via nearest path point (%.0f studs away)", nearest_dist))
-                                            utility:better_log(string.format("Raycast failed - grounded via nearest path point (%.0f studs)", nearest_dist))
-                                        end
-                                    end
+                                    local grounded = ground_or_serverhop(hrp, humanoid)
+                                    if not grounded then return end
                                     task.wait(1.5)
                                 end
                             end
@@ -14769,29 +14786,8 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                             if is_in_air then
                                                 library:Notify("Bot in air during SnapCool wait - grounding")
                                                 local hrp = plr.Character.HumanoidRootPart
-                                                local grounded = false
-                                                local rayParams = RaycastParams.new()
-                                                rayParams.FilterDescendantsInstances = {plr.Character}
-                                                rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                                local rayResult = workspace:Raycast(hrp.Position, get_downward_vector(hrp.Position), rayParams)
-
-                                                if rayResult then
-                                                    local ground_pos = rayResult.Position + Vector3.new(0, 3, 0)
-                                                    SmoothTeleport(CFrame.new(ground_pos))
-                                                    grounded = true
-                                                end
-
-                                                if not grounded and trinket_bot.path_points and #trinket_bot.path_points > 0 then
-                                                    local nearest_dist = math.huge
-                                                    local nearest_pos = nil
-                                                    for _, pt in ipairs(trinket_bot.path_points) do
-                                                        local d = (pt.position - hrp.Position).Magnitude
-                                                        if d < nearest_dist then nearest_dist = d; nearest_pos = pt.position end
-                                                    end
-                                                    if nearest_pos then
-                                                        SmoothTeleport(CFrame.new(nearest_pos))
-                                                    end
-                                                end
+                                                local grounded = ground_or_serverhop(hrp, humanoid)
+                                                if not grounded then return end
                                                 task.wait(1.5)
                                             end
                                         end
@@ -16071,13 +16067,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                             end
                         end
 
-                        if trinket_bot.original_point_1_position then
-                            local dist_to_original_p1 = (point.position - trinket_bot.original_point_1_position).Magnitude
-                            if dist_to_original_p1 < 5 and i > 1 then
-                                TrinketBotServerhop("back to point 1!!!")
-                                return
-                            end
-                        end
+
 
                         if point.wait_for_trinket then
                             local stay_in_server = Toggles.StayInServer and Toggles.StayInServer.Value or false
@@ -17234,6 +17224,13 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                         auto_start_death_connection = nil
                                     end
 
+                                    if last_y_position and last_y_position < -300 then
+                                        pcall(function() library:Notify("Died to void during auto-start - serverhopping") end)
+                                        pcall(function() utility:plain_webhook("@here Bot died to void during auto-start - serverhopping") end)
+                                        TrinketBotServerhop("bot died to void during auto-start", true)
+                                        return
+                                    end
+
                                     local stay_in_server = Toggles.StayInServer and Toggles.StayInServer.Value or false
                                     if stay_in_server then
                                         pcall(function() library:Notify("Died during auto-start (stay in server mode)") end)
@@ -17417,7 +17414,9 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                     end
 
                                                     trinket_bot.path_points = temp_path
-                                                    trinket_bot.original_point_1_position = original_point_1_pos
+                                                    -- original_point_1_position intentionally not set:
+                                                    -- the bot will complete the full reordered path on
+                                                    -- this server before serverhopping (no premature hop).
 
                                                     trinket_bot.skip_distance_check = true
                                                     trinket_bot.path_running = false
