@@ -3664,14 +3664,14 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 end
             end
 
-            -- Fetch server age directly from the same RemoteFunction the game's LocalScript uses
+           
             pcall(function()
                 local get_stats_remote = rps:FindFirstChild("Requests") and rps.Requests:FindFirstChild("GetServerStats")
                 if get_stats_remote then
                     local stats = get_stats_remote:InvokeServer()
                     if stats and stats.Age then
                         server_age_seconds = math.ceil(stats.Age)
-                        -- Also fill name/region from the invoke if GUI wasn't populated yet
+                      
                         if server_name == "" and stats.ServerName then
                             server_name = tostring(stats.ServerName)
                         end
@@ -3726,7 +3726,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 
                 local function format_age(seconds)
                     if not seconds then
-                        -- Fallback to DistributedGameTime if invoke failed
+                     
                         seconds = math.floor(workspace.DistributedGameTime)
                     end
                     local days    = math.floor(seconds / 86400)
@@ -13649,7 +13649,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
 
                 if not test_mode then
                     mem:SetItem("botstarted", "true")
-                    -- Send join log synchronously first so it always arrives before any gate/activity webhook
+                   
                     pcall(function() utility:send_server_join_log() end)
                     task.spawn(function()
                         mem:SetItem("serverhop_count", "0")
