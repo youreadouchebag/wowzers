@@ -250,6 +250,18 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
     local FindFirstChildWhichIsA = game.FindFirstChildWhichIsA
     local FindFirstChildOfClass = game.FindFirstChildOfClass
 
+    -- Track last Y position for void death detection (void = below -300)
+    local last_y_position = 0
+    task.spawn(function()
+        while task.wait(0.1) do
+            pcall(function()
+                if plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
+                    last_y_position = plr.Character.HumanoidRootPart.Position.Y
+                end
+            end)
+        end
+    end)
+
     local persisted_config_name = nil
     if mem and mem:HasItem("loaded_config") then
         persisted_config_name = mem:GetItem("loaded_config")
@@ -12369,6 +12381,46 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 return summary
             end
 
+            -- Dynamic Map Y Boundary Check
+            local function get_lowest_map_y()
+                local lowestY = -1000 -- Safe default fallback
+                pcall(function()
+                    local lowest = math.huge
+                    local live = ws:FindFirstChild("Live")
+                    for _, desc in ipairs(ws:GetDescendants()) do
+                        if desc:IsA("BasePart") then
+                            -- Exclude players/NPC characters located in workspace.Live or local player character
+                            if live and desc:IsDescendantOf(live) then
+                                continue
+                            end
+                            if plr.Character and desc:IsDescendantOf(plr.Character) then
+                                continue
+                            end
+                            
+                            local y = desc.Position.Y
+                            if y < lowest and y > -5000 then -- ignore out-of-bounds voids
+                                lowest = y
+                            end
+                        end
+                    end
+                    if lowest ~= math.huge then
+                        lowestY = lowest
+                    end
+                end)
+                return lowestY
+            end
+            local lowest_map_y = get_lowest_map_y()
+
+            -- Dynamic Downward Vector Calculation
+            local function get_downward_vector(start_pos)
+                local currentY = start_pos.Y
+                local destroyHeight = workspace.FallenPartsDestroyHeight or -2000
+                
+                -- Ensure raycast spans at least 500 studs, or all the way down to the void limit + buffer
+                local rayDistance = math.max(500, (currentY - destroyHeight) + 50)
+                return Vector3.new(0, -rayDistance, 0)
+            end
+
             local function SmoothTeleport(target, is_trinket_teleport)
                 is_trinket_teleport = is_trinket_teleport or false
 
@@ -13653,18 +13705,22 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                             trinket_bot.path_running = false
                             pcall(function() library:Notify("Path stopped due to death") end)
 
-                            local stay_in_server = Toggles.StayInServer and Toggles.StayInServer.Value or false
-                            if test_mode then
-                                pcall(function() library:Notify("You died (test mode - not kicking)") end)
-                            elseif stay_in_server then
-                                pcall(function() library:Notify("You died (stay in server - not kicking)") end)
-                                pcall(function() utility:plain_webhook("@here bot died (stay in server mode)") end)
+                            if last_y_position and last_y_position < -300 then
+                                TrinketBotServerhop("bot died to void - serverhopping", true)
                             else
-                                task.spawn(function()
-                                    pcall(function() utility:plain_webhook("@everyone bot died - kicking") end)
-                                    task.wait(0.3)
-                                    plr:Kick("bot died")
-                                end)
+                                local stay_in_server = Toggles.StayInServer and Toggles.StayInServer.Value or false
+                                if test_mode then
+                                    pcall(function() library:Notify("You died (test mode - not kicking)") end)
+                                elseif stay_in_server then
+                                    pcall(function() library:Notify("You died (stay in server - not kicking)") end)
+                                    pcall(function() utility:plain_webhook("@here bot died (stay in server mode)") end)
+                                else
+                                    task.spawn(function()
+                                        pcall(function() utility:plain_webhook("@everyone bot died - kicking") end)
+                                        task.wait(0.3)
+                                        plr:Kick("bot died")
+                                    end)
+                                end
                             end
                         end))
                     else
@@ -14369,7 +14425,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         local rayParams = RaycastParams.new()
                         rayParams.FilterDescendantsInstances = {character}
                         rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                        local rayResult = workspace:Raycast(target_pos, Vector3.new(0, -500, 0), rayParams)
+                        local rayResult = workspace:Raycast(target_pos, get_downward_vector(target_pos), rayParams)
                         
                         if rayResult then
                             target_pos = rayResult.Position + Vector3.new(0, 3, 0)
@@ -14438,7 +14494,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                         local rayParams = RaycastParams.new()
                                         rayParams.FilterDescendantsInstances = {plr.Character}
                                         rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                        local rayResult = workspace:Raycast(hrp.Position, Vector3.new(0, -500, 0), rayParams)
+                                        local rayResult = workspace:Raycast(hrp.Position, get_downward_vector(hrp.Position), rayParams)
 
                                         if rayResult then
                                             local ground_pos = rayResult.Position + Vector3.new(0, 3, 0)
@@ -14506,7 +14562,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                     local rayParams = RaycastParams.new()
                                     rayParams.FilterDescendantsInstances = {plr.Character}
                                     rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                    local rayResult = workspace:Raycast(hrp.Position, Vector3.new(0, -500, 0), rayParams)
+                                    local rayResult = workspace:Raycast(hrp.Position, get_downward_vector(hrp.Position), rayParams)
 
                                     if rayResult then
                                         local ground_pos = rayResult.Position + Vector3.new(0, 3, 0)
@@ -14611,7 +14667,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                     local rayParams = RaycastParams.new()
                                     rayParams.FilterDescendantsInstances = {plr.Character}
                                     rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                    local rayResult = ws:Raycast(hrp.Position, Vector3.new(0, -500, 0), rayParams)
+                                    local rayResult = ws:Raycast(hrp.Position, get_downward_vector(hrp.Position), rayParams)
 
                                     if rayResult then
                                         local ground_pos = rayResult.Position + Vector3.new(0, 3, 0)
@@ -14741,7 +14797,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                 local rayParams = RaycastParams.new()
                                                 rayParams.FilterDescendantsInstances = {plr.Character}
                                                 rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                                local rayResult = workspace:Raycast(hrp.Position, Vector3.new(0, -500, 0), rayParams)
+                                                local rayResult = workspace:Raycast(hrp.Position, get_downward_vector(hrp.Position), rayParams)
 
                                                 if rayResult then
                                                     local ground_pos = rayResult.Position + Vector3.new(0, 3, 0)
@@ -14813,7 +14869,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                         local rayParams = RaycastParams.new()
                                         rayParams.FilterDescendantsInstances = {character}
                                         rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                        local rayResult = workspace:Raycast(hrp.Position, Vector3.new(0, -500, 0), rayParams)
+                                        local rayResult = workspace:Raycast(hrp.Position, get_downward_vector(hrp.Position), rayParams)
 
                                         if rayResult then
                                             local ground_pos = rayResult.Position + Vector3.new(0, 3, 0)
@@ -14926,7 +14982,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                 local rayParams = RaycastParams.new()
                                                 rayParams.FilterDescendantsInstances = {character}
                                                 rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                                local rayResult = workspace:Raycast(target_pos, Vector3.new(0, -500, 0), rayParams)
+                                                local rayResult = workspace:Raycast(target_pos, get_downward_vector(target_pos), rayParams)
                                                 
                                                 if rayResult then
                                                     target_pos = rayResult.Position + Vector3.new(0, 3, 0)
@@ -15054,7 +15110,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                     local rayParams = RaycastParams.new()
                                                     rayParams.FilterDescendantsInstances = {character}
                                                     rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                                    local rayResult = workspace:Raycast(target_pos, Vector3.new(0, -500, 0), rayParams)
+                                                    local rayResult = workspace:Raycast(target_pos, get_downward_vector(target_pos), rayParams)
                                                     
                                                     if rayResult then
                                                         target_pos = rayResult.Position + Vector3.new(0, 3, 0)
@@ -15554,7 +15610,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                     local rayParams = RaycastParams.new()
                                                     rayParams.FilterDescendantsInstances = {character}
                                                     rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                                    local rayResult = workspace:Raycast(target_pos, Vector3.new(0, -500, 0), rayParams)
+                                                    local rayResult = workspace:Raycast(target_pos, get_downward_vector(target_pos), rayParams)
                                                     
                                                     if rayResult then
                                                         target_pos = rayResult.Position + Vector3.new(0, 3, 0)
@@ -16040,13 +16096,9 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                             end
                         end
 
-                        if trinket_bot.original_point_1_position then
-                            local dist_to_original_p1 = (point.position - trinket_bot.original_point_1_position).Magnitude
-                            if dist_to_original_p1 < 5 and i > 1 then
-                                TrinketBotServerhop("back to point 1!!!")
-                                return
-                            end
-                        end
+                        -- Premature serverhop on return to point 1 removed:
+                        -- the bot will complete the full reordered path on
+                        -- this server before serverhopping.
 
                         if point.wait_for_trinket then
                             local stay_in_server = Toggles.StayInServer and Toggles.StayInServer.Value or false
@@ -17203,15 +17255,19 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                         auto_start_death_connection = nil
                                     end
 
-                                    local stay_in_server = Toggles.StayInServer and Toggles.StayInServer.Value or false
-                                    if stay_in_server then
-                                        pcall(function() library:Notify("Died during auto-start (stay in server mode)") end)
-                                        pcall(function() utility:plain_webhook("@here Bot died during auto-start (stay in server mode)") end)
+                                    if last_y_position and last_y_position < -300 then
+                                        TrinketBotServerhop("bot died to void during auto-start - serverhopping", true)
                                     else
-                                        pcall(function() library:Notify("Died during auto-start - kicking") end)
-                                        pcall(function() utility:plain_webhook("@everyone Bot died during auto-start - kicking") end)
-                                        task.wait(0.3)
-                                        plr:Kick("Bot died during auto-start")
+                                        local stay_in_server = Toggles.StayInServer and Toggles.StayInServer.Value or false
+                                        if stay_in_server then
+                                            pcall(function() library:Notify("Died during auto-start (stay in server mode)") end)
+                                            pcall(function() utility:plain_webhook("@here Bot died during auto-start (stay in server mode)") end)
+                                        else
+                                            pcall(function() library:Notify("Died during auto-start - kicking") end)
+                                            pcall(function() utility:plain_webhook("@everyone Bot died during auto-start - kicking") end)
+                                            task.wait(0.3)
+                                            plr:Kick("Bot died during auto-start")
+                                        end
                                     end
                                 end)
                             else
@@ -17333,7 +17389,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                 local rayParams = RaycastParams.new()
                                                 rayParams.FilterDescendantsInstances = {character}
                                                 rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                                local rayResult = workspace:Raycast(target_pos, Vector3.new(0, -500, 0), rayParams)
+                                                local rayResult = workspace:Raycast(target_pos, get_downward_vector(target_pos), rayParams)
                                                 
                                                 if rayResult then
                                                     target_pos = rayResult.Position + Vector3.new(0, 3, 0)
@@ -17386,7 +17442,9 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                     end
 
                                                     trinket_bot.path_points = temp_path
-                                                    trinket_bot.original_point_1_position = original_point_1_pos
+                                                    -- original_point_1_position intentionally not set:
+                                                    -- the bot will complete the full reordered path on
+                                                    -- this server before serverhopping (no premature hop).
 
                                                     trinket_bot.skip_distance_check = true
                                                     trinket_bot.path_running = false
