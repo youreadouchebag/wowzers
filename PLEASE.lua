@@ -3644,6 +3644,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
         function get_server_info()
             local server_name = ""
             local server_region = ""
+            local server_age_seconds = nil
             
             if plr.PlayerGui and FindFirstChild(plr.PlayerGui, "ServerStatsGui") and FindFirstChild(plr.PlayerGui.ServerStatsGui, "Frame") then
                 local server_stats = plr.PlayerGui.ServerStatsGui.Frame.Stats
@@ -3659,8 +3660,26 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     end
                 end
             end
+
+        
+            pcall(function()
+                local get_stats_remote = rps:FindFirstChild("Requests") and rps.Requests:FindFirstChild("GetServerStats")
+                if get_stats_remote then
+                    local stats = get_stats_remote:InvokeServer()
+                    if stats and stats.Age then
+                        server_age_seconds = math.ceil(stats.Age)
+                     
+                        if server_name == "" and stats.ServerName then
+                            server_name = tostring(stats.ServerName)
+                        end
+                        if server_region == "" and stats.Region then
+                            server_region = tostring(stats.Region)
+                        end
+                    end
+                end
+            end)
             
-            return server_name, server_region
+            return server_name, server_region, server_age_seconds
         end
 
         do
@@ -3695,56 +3714,60 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             end
 
             function utility:send_server_join_log()
-                task.spawn(function()
-                    task.wait(5)
-                    local server_name, server_region = get_server_info()
-                    local server_age = workspace.DistributedGameTime
-                    local player_count = #plrs:GetPlayers()
-                    local max_players = plrs.MaxPlayers
-                    
-                    local function format_time(seconds)
-                        local hours = math.floor(seconds / 3600)
-                        local minutes = math.floor((seconds % 3600) / 60)
-                        local secs = math.floor(seconds % 60)
-                        return string.format("%02d:%02d:%02d", hours, minutes, secs)
-                    end
+                local bot_running = mem and mem:HasItem("botstarted") and mem:GetItem("botstarted") == "true"
+                if not bot_running then return end
 
-                    local function get_last_looted(where)
-                        if game.PlaceId ~= 5208655184 then return "N/A" end
-                        local success, result = pcall(function()
-                            if where == "cr" then
-                                return math.floor((os.time() - workspace.MonsterSpawns.Triggers.CastleRockSnake.LastSpawned.Value) / 60) .. "m"
-                            elseif where == "deepsunken" then
-                                return math.floor((os.time() - workspace.MonsterSpawns.Triggers.evileye2.LastSpawned.Value) / 60) .. "m"
-                            elseif where == "temple" then
-                                return math.floor((os.time() - workspace.MonsterSpawns.Triggers.MazeSnakes.LastSpawned.Value) / 60) .. "m"
-                            end
-                        end)
-                        return success and result or "N/A"
+                local server_name, server_region, server_age_seconds = get_server_info()
+                local player_count = #plrs:GetPlayers()
+                local max_players = plrs.MaxPlayers
+                
+                local function format_age(seconds)
+                    if not seconds then
+        
+                        seconds = math.floor(workspace.DistributedGameTime)
                     end
+                    local days    = math.floor(seconds / 86400)
+                    local hours   = math.floor((seconds % 86400) / 3600)
+                    local minutes = math.floor((seconds % 3600) / 60)
+                    local secs    = math.floor(seconds % 60)
+                    return string.format("%02d:%02d:%02d:%02d", days, hours, minutes, secs)
+                end
 
-                    local log_text = string.format(
-                        "**Server Join Info**\n" ..
-                        "**Server Age:** `%s`\n" ..
-                        "**Region:** `%s`\n" ..
-                        "**Players:** `%s/%s`\n\n" ..
-                        "> Castle Rock: `%s`\n" ..
-                        "> Crypt/Sunken: `%s`\n" ..
-                        "> Temple of Fire: `%s`\n\n" ..
-                        "**JobId:** `%s`\n" ..
-                        "**PlaceId:** `%s`",
-                        tostring(format_time(server_age)),
-                        tostring(server_region ~= "" and server_region or "Unknown"),
-                        tostring(player_count),
-                        tostring(max_players),
-                        tostring(get_last_looted("cr")),
-                        tostring(get_last_looted("deepsunken")),
-                        tostring(get_last_looted("temple")),
-                        tostring(game.JobId),
-                        tostring(game.PlaceId)
-                    )
-                    utility:plain_webhook(log_text)
-                end)
+                local function get_last_looted(where)
+                    if game.PlaceId ~= 5208655184 then return "N/A" end
+                    local success, result = pcall(function()
+                        if where == "cr" then
+                            return math.floor((os.time() - workspace.MonsterSpawns.Triggers.CastleRockSnake.LastSpawned.Value) / 60) .. "m"
+                        elseif where == "deepsunken" then
+                            return math.floor((os.time() - workspace.MonsterSpawns.Triggers.evileye2.LastSpawned.Value) / 60) .. "m"
+                        elseif where == "temple" then
+                            return math.floor((os.time() - workspace.MonsterSpawns.Triggers.MazeSnakes.LastSpawned.Value) / 60) .. "m"
+                        end
+                    end)
+                    return success and result or "N/A"
+                end
+
+                local log_text = string.format(
+                    "**Server Join Info**\n" ..
+                    "**Server Age:** `%s`\n" ..
+                    "**Region:** `%s`\n" ..
+                    "**Players:** `%s/%s`\n\n" ..
+                    "> Castle Rock: `%s`\n" ..
+                    "> Crypt/Sunken: `%s`\n" ..
+                    "> Temple of Fire: `%s`\n\n" ..
+                    "**JobId:** `%s`\n" ..
+                    "**PlaceId:** `%s`",
+                    format_age(server_age_seconds),
+                    tostring(server_region ~= "" and server_region or "Unknown"),
+                    tostring(player_count),
+                    tostring(max_players),
+                    tostring(get_last_looted("cr")),
+                    tostring(get_last_looted("deepsunken")),
+                    tostring(get_last_looted("temple")),
+                    tostring(game.JobId),
+                    tostring(game.PlaceId)
+                )
+                utility:plain_webhook(log_text)
             end
 
             function utility:setup_error_webhook()
@@ -13623,7 +13646,9 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
 
                 if not test_mode then
                     mem:SetItem("botstarted", "true")
-                    if not mem:HasItem("serverhop_count") then
+               
+                    pcall(function() utility:send_server_join_log() end)
+                    task.spawn(function()
                         mem:SetItem("serverhop_count", "0")
                     end
 
@@ -14369,7 +14394,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         local rayParams = RaycastParams.new()
                         rayParams.FilterDescendantsInstances = {character}
                         rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                        local rayResult = workspace:Raycast(target_pos, Vector3.new(0, -500, 0), rayParams)
+                        local rayResult = workspace:Raycast(target_pos, get_downward_vector(target_pos), rayParams)
                         
                         if rayResult then
                             target_pos = rayResult.Position + Vector3.new(0, 3, 0)
@@ -14438,7 +14463,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                         local rayParams = RaycastParams.new()
                                         rayParams.FilterDescendantsInstances = {plr.Character}
                                         rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                        local rayResult = workspace:Raycast(hrp.Position, Vector3.new(0, -500, 0), rayParams)
+                                        local rayResult = workspace:Raycast(hrp.Position, get_downward_vector(hrp.Position), rayParams)
 
                                         if rayResult then
                                             local ground_pos = rayResult.Position + Vector3.new(0, 3, 0)
@@ -14506,7 +14531,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                     local rayParams = RaycastParams.new()
                                     rayParams.FilterDescendantsInstances = {plr.Character}
                                     rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                    local rayResult = workspace:Raycast(hrp.Position, Vector3.new(0, -500, 0), rayParams)
+                                    local rayResult = workspace:Raycast(hrp.Position, get_downward_vector(hrp.Position), rayParams)
 
                                     if rayResult then
                                         local ground_pos = rayResult.Position + Vector3.new(0, 3, 0)
@@ -14584,7 +14609,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         emergency_gate_in_progress = true
                         emergency_gate_requested = nil
 
-                        -- Cancel active path movement immediately so bot stops in place
+           
                         if active_tween_data.tween then
                             active_tween_data.tween:Cancel()
                             active_tween_data.tween = nil
@@ -14593,7 +14618,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                             active_tween_data.connection:Disconnect()
                             active_tween_data.connection = nil
                         end
-                        -- If bot is in the air, ground it before gating (gates require solid ground)
+                       
                         if plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
                             local humanoid = FindFirstChildOfClass(plr.Character, "Humanoid")
                             local hrp = plr.Character.HumanoidRootPart
@@ -14606,12 +14631,12 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                     library:Notify("Bot in air during emergency gate - grounding")
                                     utility:better_log("Bot in air during emergency gate - attempting to ground via raycast")
 
-                                    -- Method 1: Raycast down to find ground and teleport there
+                               
                                     local grounded = false
                                     local rayParams = RaycastParams.new()
                                     rayParams.FilterDescendantsInstances = {plr.Character}
                                     rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                    local rayResult = ws:Raycast(hrp.Position, Vector3.new(0, -500, 0), rayParams)
+                                    local rayResult = ws:Raycast(hrp.Position, get_downward_vector(hrp.Position), rayParams)
 
                                     if rayResult then
                                         local ground_pos = rayResult.Position + Vector3.new(0, 3, 0)
@@ -14620,7 +14645,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                         library:Notify(string.format("Grounded via raycast (%.0f studs below)", (hrp.Position - ground_pos).Magnitude + 3))
                                     end
 
-                                    -- Method 2: If raycast failed (void), snap to nearest path point
+                                  
                                     if not grounded and trinket_bot.path_points and #trinket_bot.path_points > 0 then
                                         local nearest_dist = math.huge
                                         local nearest_pos = nil
@@ -14741,7 +14766,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                 local rayParams = RaycastParams.new()
                                                 rayParams.FilterDescendantsInstances = {plr.Character}
                                                 rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                                local rayResult = workspace:Raycast(hrp.Position, Vector3.new(0, -500, 0), rayParams)
+                                                local rayResult = workspace:Raycast(hrp.Position, get_downward_vector(hrp.Position), rayParams)
 
                                                 if rayResult then
                                                     local ground_pos = rayResult.Position + Vector3.new(0, 3, 0)
@@ -14813,7 +14838,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                         local rayParams = RaycastParams.new()
                                         rayParams.FilterDescendantsInstances = {character}
                                         rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                        local rayResult = workspace:Raycast(hrp.Position, Vector3.new(0, -500, 0), rayParams)
+                                        local rayResult = workspace:Raycast(hrp.Position, get_downward_vector(hrp.Position), rayParams)
 
                                         if rayResult then
                                             local ground_pos = rayResult.Position + Vector3.new(0, 3, 0)
@@ -14847,7 +14872,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                     current_gate_section = current_gate_section + 1
                                     proximity_warnings = {}
 
-                                    -- Post-gate safety scan: hold position and check surroundings
+                                  
                                     if plr.Character then
                                         local hum = FindFirstChildOfClass(plr.Character, "Humanoid")
                                         if hum then
@@ -14926,7 +14951,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                 local rayParams = RaycastParams.new()
                                                 rayParams.FilterDescendantsInstances = {character}
                                                 rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                                local rayResult = workspace:Raycast(target_pos, Vector3.new(0, -500, 0), rayParams)
+                                                local rayResult = workspace:Raycast(target_pos, get_downward_vector(target_pos), rayParams)
                                                 
                                                 if rayResult then
                                                     target_pos = rayResult.Position + Vector3.new(0, 3, 0)
@@ -14973,7 +14998,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                 current_gate_section = current_gate_section + 1
                                                 proximity_warnings = {}
 
-                                                -- Post-gate safety scan: hold position and check surroundings
+                                             
                                                 if plr.Character then
                                                     local hum = FindFirstChildOfClass(plr.Character, "Humanoid")
                                                     if hum then
@@ -15054,7 +15079,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                     local rayParams = RaycastParams.new()
                                                     rayParams.FilterDescendantsInstances = {character}
                                                     rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                                    local rayResult = workspace:Raycast(target_pos, Vector3.new(0, -500, 0), rayParams)
+                                                    local rayResult = workspace:Raycast(target_pos, get_downward_vector(target_pos), rayParams)
                                                     
                                                     if rayResult then
                                                         target_pos = rayResult.Position + Vector3.new(0, 3, 0)
@@ -15098,7 +15123,6 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                     current_gate_section = current_gate_section + 1
                                                     proximity_warnings = {}
 
-                                                    -- Post-gate safety scan: hold position and check surroundings
                                                     if plr.Character then
                                                         local hum = FindFirstChildOfClass(plr.Character, "Humanoid")
                                                         if hum then
@@ -15554,7 +15578,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                     local rayParams = RaycastParams.new()
                                                     rayParams.FilterDescendantsInstances = {character}
                                                     rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                                    local rayResult = workspace:Raycast(target_pos, Vector3.new(0, -500, 0), rayParams)
+                                                    local rayResult = workspace:Raycast(target_pos, get_downward_vector(target_pos), rayParams)
                                                     
                                                     if rayResult then
                                                         target_pos = rayResult.Position + Vector3.new(0, 3, 0)
@@ -15835,7 +15859,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                     current_gate_section = current_gate_section + 1
                                     proximity_warnings = {}
 
-                                    -- Post-gate safety scan: hold position and check surroundings
+                                   
                                     if plr.Character then
                                         local hum = FindFirstChildOfClass(plr.Character, "Humanoid")
                                         if hum then
@@ -17333,7 +17357,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                 local rayParams = RaycastParams.new()
                                                 rayParams.FilterDescendantsInstances = {character}
                                                 rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                                local rayResult = workspace:Raycast(target_pos, Vector3.new(0, -500, 0), rayParams)
+                                                local rayResult = workspace:Raycast(target_pos, get_downward_vector(target_pos), rayParams)
                                                 
                                                 if rayResult then
                                                     target_pos = rayResult.Position + Vector3.new(0, 3, 0)
@@ -24561,7 +24585,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 local is_rapier_skill =
                     current_tool and child.Name == "Rapier" and rapier_skills[current_tool.Name]
 
-                -- If another random tool equipped, don't interfere
+              
                 if current_tool and not (is_dagger_skill or is_rapier_skill) then
                     return
                 end
