@@ -250,7 +250,6 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
     local FindFirstChildWhichIsA = game.FindFirstChildWhichIsA
     local FindFirstChildOfClass = game.FindFirstChildOfClass
 
-    -- Track last Y position for void death detection (void = below -300)
     local last_y_position = 0
     task.spawn(function()
         while task.wait(0.1) do
@@ -265,6 +264,29 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
     local persisted_config_name = nil
     if mem and mem:HasItem("loaded_config") then
         persisted_config_name = mem:GetItem("loaded_config")
+    end
+
+    if mem and mem:HasItem("joined_via_23_joiner") then
+        local joinedId = mem:GetItem("joined_via_23_joiner")
+        mem:RemoveItem("joined_via_23_joiner")
+        task.spawn(function()
+            task.wait(2) 
+            if cheat_client.config.webhook and cheat_client.config.webhook ~= "" then
+                pcall(function()
+                    local embed = {
+                        title = " 23 Joiner: Successfully Joined",
+                        description = "Successfully joined target server with Job ID:\n`" .. joinedId .. "`",
+                        color = 0x00FF00,
+                        footer = { text = "Server Scanner" },
+                        timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
+                    }
+                    HXD_SEND_WEBHOOK(cheat_client.config.webhook, { 
+                        username = cheat_client.config.webhook_username or "bladee",
+                        embeds = { embed } 
+                    })
+                end)
+            end
+        end)
     end
     
     local ui = tostring(identifyexecutor()) == "Volt" and cg or (gethui and gethui() or cg)
@@ -7287,7 +7309,8 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             Botting = window:AddTab("Botting", "bot"),
             Macros = window:AddTab("Macros", "play"),
             Interface = window:AddTab("Interface", "monitor"),
-            Config = window:AddTab("Config", "save")
+            Config = window:AddTab("Config", "save"),
+            Servers23 = window:AddTab("23s", "server")
         }
 
         do
@@ -10086,6 +10109,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 local loop_join_connection = nil
                 local loop_join_last_attempt = 0
                 local current_job_index = 1
+                local join_23_connection = nil
 
                 group_server_join:AddToggle("loop_join", {
                     Text = "Loop Join",
@@ -10303,7 +10327,226 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             })
 
             group_server_join:AddDivider()
+            local group_23s = Tabs.Servers23:AddLeftGroupbox("23 Scanner")
 
+            group_23s:AddSlider("join_23_target_size", {
+                Text = "Minimum Server Size",
+                Default = 20,
+                Min = 1,
+                Max = 22,
+                Rounding = 0,
+                Compact = false,
+                Tooltip = "The minimum player count a 23-max server must have for the bot to join it.",
+            })
+
+            group_23s:AddToggle("join_23_servers", {
+                Text = "23 Joiner",
+                Default = false,
+                Tooltip = "Poll for 23-max servers and join when player count meets the minimum target size.",
+                Callback = function(value)
+                    if not value then return end
+
+                    if Toggles.anti_afk then
+                        Toggles.anti_afk:SetValue(true)
+                    end
+
+                    task.spawn(function()
+                        local PlaceId = game.PlaceId
+                        local HttpService = Services.HttpService
+                        local Req = (syn and syn.request) or (http and http.request) or http_request or request or fluxus and fluxus.request
+                        
+                        if not Req then
+                            library:Notify("Your executor does not support HTTP requests.")
+                            Toggles.join_23_servers:SetValue(false)
+                            return
+                        end
+                        
+                        library:Notify("23 Joiner: Polling for target servers...")
+                        
+                        while Toggles.join_23_servers.Value do
+                            local cursor = ""
+                            local targetFound = false
+                            
+                            while cursor ~= nil and Toggles.join_23_servers.Value do
+                                local targetSize = Options.join_23_target_size.Value
+                                local url = string.format("https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Desc&limit=100", PlaceId)
+                                if cursor ~= "" then url = url .. "&cursor=" .. cursor end
+                                
+                                local success, response = pcall(function() return Req({ Url = url, Method = "GET" }) end)
+                                
+                                local data = nil
+                                if not success or not response or response.StatusCode ~= 200 then
+                                    local fallbackUrl = string.format("https://games.roproxy.com/v1/games/%d/servers/Public?sortOrder=Desc&limit=100", PlaceId)
+                                    if cursor ~= "" then fallbackUrl = fallbackUrl .. "&cursor=" .. cursor end
+                                    success, response = pcall(function() return Req({ Url = fallbackUrl, Method = "GET" }) end)
+                                end
+                                
+                                if success and response and response.StatusCode == 200 then
+                                    data = HttpService:JSONDecode(response.Body)
+                                    for _, server in ipairs(data.data) do
+                                
+                                        if server.maxPlayers == 23 and server.playing >= targetSize and server.playing < 23 then
+                                            library:Notify("23 Joiner: Found server (" .. server.playing .. "/23). Joining...")
+                                            
+                                            if mem then mem:SetItem("joined_via_23_joiner", server.id) end
+                                            
+                                            join_game_by_id(server.id)
+                                            targetFound = true
+                                            break
+                                        end
+                                    end
+                                    if targetFound then break end
+                                    cursor = data.nextPageCursor
+                                else
+                                    break
+                                end
+                                task.wait(0.5)
+                            end
+                            
+                            if targetFound then
+                                task.wait(10)
+                                if mem then mem:RemoveItem("joined_via_23_joiner") end
+                            else
+                                task.wait(3)
+                            end
+                        end
+                    end)
+                end
+            })
+
+            group_23s:AddButton({
+                Text = "Log 20-23 Servers to Webhook",
+                Tooltip = "Scans and sends a list of 23-max servers with 20-23 players to your webhook.",
+                Func = function()
+                    task.spawn(function()
+                        local PlaceId = game.PlaceId
+                        local HttpService = Services.HttpService
+                        local Req = (syn and syn.request) or (http and http.request) or http_request or request or fluxus and fluxus.request
+                        
+                        if not Req then
+                            library:Notify("Your executor does not support HTTP requests.")
+                            return
+                        end
+                        
+                        if not cheat_client.config.webhook or cheat_client.config.webhook == "" then
+                            library:Notify("Please set a webhook URL in the UI Settings first!")
+                            return
+                        end
+                        
+                        library:Notify("Scanning for 20-23 player servers... (This might take a moment)")
+                        
+                        local cursor = ""
+                        local foundServers = {}
+                        local pagesChecked = 0
+                        
+                        while cursor ~= nil and pagesChecked < 10 do
+                            pagesChecked = pagesChecked + 1
+                            local url = string.format("https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Desc&limit=100", PlaceId)
+                            if cursor ~= "" then url = url .. "&cursor=" .. cursor end
+                            
+                            local success, response = pcall(function() return Req({ Url = url, Method = "GET" }) end)
+                            
+                            if not success or not response or response.StatusCode ~= 200 then
+                                local fallbackUrl = string.format("https://games.roproxy.com/v1/games/%d/servers/Public?sortOrder=Desc&limit=100", PlaceId)
+                                if cursor ~= "" then fallbackUrl = fallbackUrl .. "&cursor=" .. cursor end
+                                success, response = pcall(function() return Req({ Url = fallbackUrl, Method = "GET" }) end)
+                            end
+                            
+                            if success and response and response.StatusCode == 200 then
+                                local data = HttpService:JSONDecode(response.Body)
+                                for _, server in ipairs(data.data) do
+                                    if server.maxPlayers == 23 and server.playing >= 20 and server.playing <= 23 then
+                                        table.insert(foundServers, server)
+                                    end
+                                end
+                                cursor = data.nextPageCursor
+                            else
+                                break
+                            end
+                            task.wait(0.2)
+                        end
+                        
+                        if #foundServers == 0 then
+                            library:Notify("No servers found matching criteria.")
+                            return
+                        end
+                        
+                        local description = ""
+                        for i, server in ipairs(foundServers) do
+                            description = description .. string.format("**Players:** %d/23 | **Ping:** %s | **JobId:** `%s`\n", server.playing, tostring(server.ping or "N/A"), server.id)
+                            if i >= 30 then
+                                description = description .. "\n*...and more (limit reached for embed).* "
+                                break
+                            end
+                        end
+                        
+                        local embed = {
+                            title = " 23-Max Servers Found (20-23 Players)",
+                            description = description,
+                            color = 0x00FF00,
+                            timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
+                        }
+                        
+                        pcall(function()
+                            HXD_SEND_WEBHOOK(cheat_client.config.webhook, { 
+                                username = cheat_client.config.webhook_username or "23 Scanner",
+                                embeds = { embed } 
+                            })
+                        end)
+                        
+                        library:Notify("Sent " .. #foundServers .. " servers to your webhook!")
+                    end)
+                end
+            })
+			group_23s:AddButton({
+                Text = "Brute Force Join 20-23s",
+                Tooltip = "Attempts to join every server found in the 20-23 range one by one.",
+                Func = function()
+                    task.spawn(function()
+                        local PlaceId = game.PlaceId
+                        local HttpService = Services.HttpService
+                        local Req = (syn and syn.request) or (http and http.request) or http_request or request
+                        
+                        library:Notify("Brute forcing... ensure your auto-clicker is on the 'OK' button!")
+                        
+                        local cursor = ""
+                        local targetServers = {}
+                        
+                   
+                        for i = 1, 5 do 
+                            local url = string.format("https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Desc&limit=100&cursor=%s", PlaceId, cursor)
+                            local success, response = pcall(function() return Req({ Url = url, Method = "GET" }) end)
+                            
+                            if success and response.StatusCode == 200 then
+                                local data = HttpService:JSONDecode(response.Body)
+                                for _, server in ipairs(data.data) do
+                                    if server.maxPlayers == 23 and server.playing >= 20 and server.playing < 23 then
+                                        table.insert(targetServers, server.id)
+                                    end
+                                end
+                                cursor = data.nextPageCursor
+                                if not cursor then break end
+                            end
+                            task.wait(0.3)
+                        end
+                        
+                     
+                        for _, jobId in ipairs(targetServers) do
+                            library:Notify("Attempting join: " .. jobId)
+                            
+                       
+                            Services.TeleportService:TeleportToPlaceInstance(PlaceId, jobId, Services.Players.LocalPlayer)
+                            
+                       
+                            task.wait(5) 
+                        end
+                        
+                        library:Notify("Finished brute force cycle.")
+                    end)
+                end
+           
+		   })
+           
             group_server_join:AddButton({
                 Text = "Join Largest Server",
                 Func = function()
@@ -12381,7 +12624,6 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 return summary
             end
 
-            -- Dynamic Map Y Boundary Check
             local function get_lowest_map_y()
                 local lowestY = -1000 -- Safe default fallback
                 pcall(function()
@@ -12411,12 +12653,12 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
             end
             local lowest_map_y = get_lowest_map_y()
 
-            -- Dynamic Downward Vector Calculation
+    
             local function get_downward_vector(start_pos)
                 local currentY = start_pos.Y
                 local destroyHeight = workspace.FallenPartsDestroyHeight or -2000
                 
-                -- Ensure raycast spans at least 500 studs, or all the way down to the void limit + buffer
+            
                 local rayDistance = math.max(500, (currentY - destroyHeight) + 50)
                 return Vector3.new(0, -rayDistance, 0)
             end
@@ -14640,7 +14882,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         emergency_gate_in_progress = true
                         emergency_gate_requested = nil
 
-                        -- Cancel active path movement immediately so bot stops in place
+                       
                         if active_tween_data.tween then
                             active_tween_data.tween:Cancel()
                             active_tween_data.tween = nil
@@ -14649,7 +14891,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                             active_tween_data.connection:Disconnect()
                             active_tween_data.connection = nil
                         end
-                        -- If bot is in the air, ground it before gating (gates require solid ground)
+                     
                         if plr.Character and FindFirstChild(plr.Character, "HumanoidRootPart") then
                             local humanoid = FindFirstChildOfClass(plr.Character, "Humanoid")
                             local hrp = plr.Character.HumanoidRootPart
@@ -14662,7 +14904,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                     library:Notify("Bot in air during emergency gate - grounding")
                                     utility:better_log("Bot in air during emergency gate - attempting to ground via raycast")
 
-                                    -- Method 1: Raycast down to find ground and teleport there
+                                
                                     local grounded = false
                                     local rayParams = RaycastParams.new()
                                     rayParams.FilterDescendantsInstances = {plr.Character}
@@ -14676,7 +14918,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                         library:Notify(string.format("Grounded via raycast (%.0f studs below)", (hrp.Position - ground_pos).Magnitude + 3))
                                     end
 
-                                    -- Method 2: If raycast failed (void), snap to nearest path point
+                                 
                                     if not grounded and trinket_bot.path_points and #trinket_bot.path_points > 0 then
                                         local nearest_dist = math.huge
                                         local nearest_pos = nil
@@ -14903,7 +15145,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                     current_gate_section = current_gate_section + 1
                                     proximity_warnings = {}
 
-                                    -- Post-gate safety scan: hold position and check surroundings
+                            
                                     if plr.Character then
                                         local hum = FindFirstChildOfClass(plr.Character, "Humanoid")
                                         if hum then
@@ -15029,7 +15271,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                 current_gate_section = current_gate_section + 1
                                                 proximity_warnings = {}
 
-                                                -- Post-gate safety scan: hold position and check surroundings
+                                             
                                                 if plr.Character then
                                                     local hum = FindFirstChildOfClass(plr.Character, "Humanoid")
                                                     if hum then
@@ -15154,7 +15396,6 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                     current_gate_section = current_gate_section + 1
                                                     proximity_warnings = {}
 
-                                                    -- Post-gate safety scan: hold position and check surroundings
                                                     if plr.Character then
                                                         local hum = FindFirstChildOfClass(plr.Character, "Humanoid")
                                                         if hum then
@@ -15891,7 +16132,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                     current_gate_section = current_gate_section + 1
                                     proximity_warnings = {}
 
-                                    -- Post-gate safety scan: hold position and check surroundings
+                                
                                     if plr.Character then
                                         local hum = FindFirstChildOfClass(plr.Character, "Humanoid")
                                         if hum then
@@ -24619,7 +24860,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 local is_rapier_skill =
                     current_tool and child.Name == "Rapier" and rapier_skills[current_tool.Name]
 
-                -- If another random tool equipped, don't interfere
+          
                 if current_tool and not (is_dagger_skill or is_rapier_skill) then
                     return
                 end
