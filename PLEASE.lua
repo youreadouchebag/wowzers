@@ -16798,7 +16798,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                         library:Notify("Restarting path...")
                         task.wait(1)
                         trinket_bot.path_running = false
-                        ExecutePath(false)
+                        ExecutePath_safe(false)
                     else
                         library:Notify("Path completed! Serverhopping...")
                         task.wait(0.5)
@@ -16818,6 +16818,25 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                     local hours = math.floor(elapsed_time / 3600)
                     local minutes = math.floor((elapsed_time % 3600) / 60)
                     local seconds = math.floor(elapsed_time % 60)
+
+                    -- Protected wrapper to run ExecutePath without crashing the executor
+                    local function ExecutePath_safe(...)
+                        local ok, err = xpcall(function() ExecutePath(...) end, debug.traceback)
+                        if not ok then
+                            pcall(function() library:Notify("Trinket bot crashed: " .. tostring(err)) end)
+                            pcall(function()
+                                if mem and mem.SetItem then
+                                    mem:SetItem("botstarted", "false")
+                                end
+                            end)
+                            pcall(function() trinket_bot.path_running = false end)
+                            pcall(function()
+                                if utility and utility.plain_webhook then
+                                    utility:plain_webhook("@everyone CRITICAL: Trinket bot crashed: " .. tostring(err))
+                                end
+                            end)
+                        end
+                    end
 
                     local items_text = ""
                     if trinket_bot.session_loot and next(trinket_bot.session_loot) then
@@ -17703,7 +17722,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                                         auto_start_death_connection = nil
                                                     end
 
-                                                    ExecutePath(false)
+                                                    ExecutePath_safe(false)
                                                     return
                                                 else
                                                     library:Notify("Resume gate to last point failed - serverhopping")
@@ -17806,7 +17825,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                                 auto_start_death_connection = nil
                             end
 
-                            ExecutePath(false)
+                                                    ExecutePath_safe(false)
                         else
                             if auto_start_death_connection then
                                 pcall(function() auto_start_death_connection:Disconnect() end)
@@ -18017,7 +18036,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 Text = "Start Path",
                 Tooltip = "Requires Blatant Mode to be enabled",
                 Func = function()
-                    task.spawn(ExecutePath, false)
+                    task.spawn(ExecutePath_safe, false)
                 end
             })
 
@@ -18025,7 +18044,7 @@ if game.PlaceId == 3541987450 or game.PlaceId == 5208655184 or game.PlaceId == 1
                 Text = "Test Path",
                 Tooltip = "Requires Blatant Mode to be enabled",
                 Func = function()
-                    task.spawn(ExecutePath, true)
+                    task.spawn(ExecutePath_safe, true)
                 end
             })
 
